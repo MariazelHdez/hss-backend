@@ -592,8 +592,23 @@ constellationRouter.post("/export/", async (req: Request, res: Response) => {
                 )
             .where('CONSTELLATION_HEALTH.STATUS', '<>', 4 );
 
-        if(requests.length > 0){
+        if(requests.length > 0 && requests.length < 500){
             query.whereIn("CONSTELLATION_HEALTH.ID", requests);
+        }else if(requests.length > 500){
+
+            //Splits array into chunks of 100 elements
+            var requestsChunks = _.chunk(requests, 100);
+
+            if (requestsChunks.length > 0) {
+                query = query.andWhere(function() {
+                    this.whereIn('CONSTELLATION_HEALTH.ID', requestsChunks[0])
+                    .orWhere(function() {
+                        for (let i = 1; i < requestsChunks.length; i++) {
+                            this.orWhereIn('CONSTELLATION_HEALTH.ID', requestsChunks[i]);
+                        }
+                    });
+                });
+            }
         }
 
         if(dateFrom && dateTo) {
@@ -673,7 +688,26 @@ constellationRouter.post("/export/", async (req: Request, res: Response) => {
                 'CONSTELLATION_HEALTH_DEMOGRAPHICS.DESCRIPTION AS DEMOGRAPHIC_DESCRIPTION_FAMILY_MEMBER');
 
         if(!_.isEmpty(idSubmission)){
-            queryFamily.whereIn('CONSTELLATION_HEALTH_FAMILY_MEMBERS.CONSTELLATION_HEALTH_ID', idSubmission );
+
+            if(idSubmission.length > 0 && idSubmission.length < 500){
+                queryFamily.whereIn('CONSTELLATION_HEALTH_FAMILY_MEMBERS.CONSTELLATION_HEALTH_ID', idSubmission );
+            }else if(idSubmission.length > 500){
+
+                //Splits array into chunks of 100 elements
+                var requestsChunks = _.chunk(idSubmission, 100);
+
+                if (requestsChunks.length > 0) {
+                    queryFamily = queryFamily.andWhere(function() {
+                        this.whereIn('CCONSTELLATION_HEALTH_FAMILY_MEMBERS.CONSTELLATION_HEALTH_ID', requestsChunks[0])
+                        .orWhere(function() {
+                            for (let i = 1; i < requestsChunks.length; i++) {
+                                this.orWhereIn('CCONSTELLATION_HEALTH_FAMILY_MEMBERS.CONSTELLATION_HEALTH_ID', requestsChunks[i]);
+                            }
+                        });
+                    });
+                }
+            }
+
         }   
         const constellationFamily = await queryFamily;
         let flagFamilyMembers = false;

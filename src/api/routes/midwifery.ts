@@ -667,8 +667,23 @@ midwiferyRouter.post("/export", async (req: Request, res: Response) => {
                 "TO_CHAR(MIDWIFERY_SERVICES.UPDATED_AT, 'YYYY-MM-DD HH24:MI:SS') AS UPDATED_AT")
             ).where('MIDWIFERY_SERVICES.STATUS', '<>', 4 );
 
-        if(requests.length > 0 &&  query){
+        if(requests.length > 0 && requests.length < 500){
             query.whereIn("MIDWIFERY_SERVICES.ID", requests);
+        }else if(requests.length > 500){
+
+            //Splits array into chunks of 100 elements
+            var requestsChunks = _.chunk(requests, 100);
+
+            if (requestsChunks.length > 0) {
+                query = query.andWhere(function() {
+                    this.whereIn('MIDWIFERY_SERVICES.ID', requestsChunks[0])
+                    .orWhere(function() {
+                        for (let i = 1; i < requestsChunks.length; i++) {
+                            this.orWhereIn('MIDWIFERY_SERVICES.ID', requestsChunks[i]);
+                        }
+                    });
+                });
+            }
         }
 
         if(dateFrom && dateTo &&  query) {
