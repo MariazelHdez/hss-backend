@@ -92,6 +92,14 @@ hipmaRouter.post("/", async (req: Request, res: Response) => {
         var dateFrom = req.body.params.dateFrom;
         var dateTo = req.body.params.dateTo;
         db = await helper.getOracleClient(db, DB_CONFIG_HIPMA);
+
+        const page = parseInt(req.body.params.page as string) || 1;
+        const pageSize = parseInt(req.body.params.pageSize as string) || 10;
+        const offset = (page - 1) * pageSize;
+        const sortBy = req.body.params.sortBy;
+        const sortOrder = req.body.params.sortOrder;
+        const initialFetch = req.body.params.initialFetch;
+
         let query = db(`${SCHEMA_HIPMA}.HEALTH_INFORMATION`)
             .leftJoin(`${SCHEMA_HIPMA}.HIPMA_REQUEST_TYPE`, 'HEALTH_INFORMATION.WHAT_TYPE_OF_REQUEST_DO_YOU_WANT_TO_MAKE_', '=', 'HIPMA_REQUEST_TYPE.ID')
             .leftJoin(`${SCHEMA_HIPMA}.HIPMA_REQUEST_ACCESS_PERSONAL_HEALTH_INFORMATION`, 'HEALTH_INFORMATION.ARE_YOU_REQUESTING_ACCESS_TO_YOUR_OWN_PERSONAL_HEALTH_INFORMATI', '=', 'HIPMA_REQUEST_ACCESS_PERSONAL_HEALTH_INFORMATION.ID')
@@ -105,21 +113,56 @@ hipmaRouter.post("/", async (req: Request, res: Response) => {
                     db.raw("(HEALTH_INFORMATION.FIRST_NAME ||  ' '||  HEALTH_INFORMATION.LAST_NAME) AS APPLICANT_FULL_NAME, "+
                         "TO_CHAR(HEALTH_INFORMATION.CREATED_AT, 'YYYY-MM-DD HH24:MI:SS') AS CREATED_AT")
             )
-            .where('HEALTH_INFORMATION.STATUS', '=', 1)
-            .orderBy('HEALTH_INFORMATION.CREATED_AT', 'ASC');
+            .where('HEALTH_INFORMATION.STATUS', '=', 1);
+
+        const countAllQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
 
         if(dateFrom && dateTo) {
             query.where(db.raw("TO_CHAR(HEALTH_INFORMATION.CREATED_AT, 'YYYY-MM-DD') >=  ? AND TO_CHAR(HEALTH_INFORMATION.CREATED_AT, 'YYYY-MM-DD') <= ?",
                 [dateFrom, dateTo]));
         }
 
-        const hipma = await query;
+        if (sortBy) {
+            switch (sortBy) {
+                case "hipma_request_type_desc":
+                    query = query.orderBy(`HEALTH_INFORMATION.WHAT_TYPE_OF_REQUEST_DO_YOU_WANT_TO_MAKE_`, sortOrder);
+                    break;
+                case "access_personal_health_information":
+                    query = query.orderBy(`HEALTH_INFORMATION.ARE_YOU_REQUESTING_ACCESS_TO_YOUR_OWN_PERSONAL_HEALTH_INFORMATI`, sortOrder);
+                    break;
+                case "applicant_full_name":
+                    query = query.orderBy(`HEALTH_INFORMATION.FIRST_NAME`, sortOrder);
+                    break;
+                default:
+                    query = query.orderBy(`HEALTH_INFORMATION.${sortBy.toUpperCase()}`, sortOrder);
+                    break;
+            }
+        } else {
+            query = query.orderBy('HEALTH_INFORMATION.CREATED_AT', 'ASC');
+        }
+
+        const countQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
+
+        if(pageSize !== -1 && initialFetch == 0){
+            query = query.offset(offset).limit(pageSize);
+        }else if(initialFetch == 1){
+            query = query.offset(offset).limit(100);
+        }
+
+        const [hipma, countResult, countResultAll] = await Promise.all([
+            query,
+            countQuery,
+            countAllQuery
+        ]);
+
+        const countSubmissions = countResult ? countResult.count : 0;
+        const countAll = countResultAll ? countResultAll.count : 0;
 
         hipma.forEach(function (value: any) {
             value.showUrl = "hipma/show/"+value.id;
         });
 
-        res.send({data: hipma});
+        res.send({data: hipma, total: countSubmissions, all: countAll});
 
     } catch(e) {
         console.log(e);  // debug if needed
