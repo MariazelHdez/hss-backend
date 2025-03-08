@@ -11,21 +11,15 @@
 				cols="12"
                 sm="12"
                 md="12"
-                lg="2"
+                lg="4"
 			>
-				<v-select
-					:items="bulkActions"
-					v-model="bulkSelected"
-					solo
-					label="Bulk Actions"
-					append-icon="mdi-chevron-down"
-					prepend-inner-icon="mdi-layers-triple"
-					color="grey lighten-2"
-					item-color="grey lighten-2"
-					@change="enterBulkAction"
-					id="bulk-accion-select"
-				>
-				</v-select>
+				<v-text-field
+					label="Keyword"
+					variant="underlined"
+					prepend-inner-icon="mdi-magnify"
+					v-model="searchInputQuery"
+				></v-text-field>
+				<span class="grey--text text-subtitle-2">Search By: First Name, Middle Name, Last Name, Postal Code, Healthcare Card Number or Email</span>
 			</v-col>
 			<v-col
 				cols="12"
@@ -34,14 +28,28 @@
                 lg="1"
 				class="text-center"
 			>
+				<v-tooltip top>
+					<template v-slot:activator="{ on, attrs }">
+						<v-icon v-bind="attrs" v-on="on" @click="clearSarchInput">mdi-close-circle</v-icon>
+					</template>
+					<span>Clear Keyword Filter</span>
+				</v-tooltip>
+			</v-col>
+			<v-col
+				cols="12"
+                sm="12"
+                md="12"
+                lg="1"
+				class="text-left"
+			>
 				<v-btn
 					color="#F3A901"
 					class="white--text apply-btn mt-2"
-					id="apply-btn"
-					:disabled="applyDisabled"
-					@click="submitBulk"
+					id="searchInput-btn"
+					:disabled="!searchInputQuery.trim()"
+					@click="searchInputData"
 				>
-					Apply
+					Search
 				</v-btn>
 			</v-col>
 
@@ -54,7 +62,7 @@
 				<v-select
 					v-model="statusSelected"
 					:items="statusFilter"
-					label="Select"
+					label="Select Status"
 					multiple
 					persistent-hint
 					@change="changeStatusSelect"
@@ -65,7 +73,7 @@
 				cols="12"
                 sm="12"
                 md="12"
-                lg="2"
+                lg="1"
 			>
 				<v-text-field
 					v-model="selectedYear"
@@ -80,7 +88,7 @@
 				cols="12"
                 sm="12"
                 md="12"
-                lg="2"
+                lg="1"
 			>
 				<v-menu
 					ref="menu"
@@ -113,7 +121,7 @@
 				cols="12"
                 sm="12"
                 md="12"
-                lg="2"
+                lg="1"
 			>
 				<v-menu
 					ref="menuEnd"
@@ -146,12 +154,61 @@
                 sm="12"
                 md="12"
                 lg="1"
-                class="btn-reset"
+                class="btn-reset ma-0"
 				v-if="removeFilters"
 			>
-				<v-icon @click="resetInputs"> mdi-filter-remove </v-icon>
+
+				<v-tooltip top>
+					<template v-slot:activator="{ on, attrs }">
+						<v-icon v-bind="attrs" v-on="on" @click="resetInputs"> mdi-filter-remove </v-icon>
+					</template>
+					<span>Clear Filters</span>
+				</v-tooltip>
 			</v-col>
 		</v-row>
+
+		<v-row  class="mb-5 d-flex align-baseline" no-gutters>
+
+			<v-col
+				cols="12"
+                sm="12"
+                md="12"
+                lg="2"
+			>
+				<v-select
+					:items="bulkActions"
+					v-model="bulkSelected"
+					solo
+					label="Bulk Actions"
+					append-icon="mdi-chevron-down"
+					prepend-inner-icon="mdi-layers-triple"
+					color="grey lighten-2"
+					item-color="grey lighten-2"
+					@change="enterBulkAction"
+					id="bulk-accion-select"
+				>
+				</v-select>
+			</v-col>
+
+			<v-col
+				cols="12"
+                sm="12"
+                md="12"
+                lg="1"
+				class="text-center"
+			>
+				<v-btn
+					color="#F3A901"
+					class="white--text apply-btn mt-2"
+					id="apply-btn"
+					:disabled="applyDisabled"
+					@click="submitBulk"
+				>
+					Apply
+				</v-btn>
+			</v-col>
+		</v-row>
+
 		<v-data-table
 			dense
 			v-model="selected"
@@ -237,6 +294,8 @@
 		pageCount: 0,
 		iteamsPerPage: 10,
 		alignments: "center",
+		searchInputDisabled: true,
+		searchInputQuery: '',
 	}),
 	components: {
 		Notifications
@@ -301,6 +360,8 @@
 			this.dateYear = null;
 			this.selectedYear = null;
 			this.selected = [];
+			this.searchInputQuery = "";
+			this.searchInputDisabled = true;
 			this.getDataFromApi();
 		},
 		getDataFromApi() {
@@ -311,7 +372,8 @@
 					dateFrom: this.date,
 					dateTo: this.dateEnd,
 					dateYear: this.dateYear,
-					status: this.statusSelected
+					status: this.statusSelected,
+					searchQuery: this.searchInputQuery,
 				}
 			})
 			.then((resp) => {
@@ -363,6 +425,16 @@
 					});
 				}
 			}
+		},
+		searchInputData() {
+			if(this.searchInputQuery !== null && this.searchInputQuery !== ""){
+				this.getDataFromApi();
+			}
+		},
+		clearSarchInput(){
+			this.searchInputQuery = "";
+			this.searchInputDisabled = true;
+			this.getDataFromApi();
 		},
 	},
 	};

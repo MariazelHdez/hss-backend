@@ -97,6 +97,8 @@ dentalRouter.post("/", async (req: Request, res: Response) => {
         var dateTo = req.body.params.dateTo;
         var dateYear = req.body.params.dateYear;
         let status_request = req.body.params.status;
+        let searchQuery = req.body.params.searchQuery;
+
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
         let query = db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_SUBMISSIONS`)
             .orderBy('ID', 'ASC');
@@ -114,6 +116,19 @@ dentalRouter.post("/", async (req: Request, res: Response) => {
 
         if (status_request) {
             query.whereIn("STATUS", status_request);
+        }
+
+        if (searchQuery) {
+            const lowerSearch = searchQuery.toLowerCase();
+
+            query.where(function () {
+                this.whereRaw(`LOWER(FIRST_NAME) LIKE ?`, [`%${lowerSearch}%`])
+                .orWhereRaw(`LOWER(MIDDLE_NAME) LIKE ?`, [`%${lowerSearch}%`])
+                .orWhereRaw(`LOWER(LAST_NAME) LIKE ?`, [`%${lowerSearch}%`])
+                .orWhereRaw(`LOWER(HEALTH_CARD_NUMBER) LIKE ?`, [`%${lowerSearch}%`])
+                .orWhereRaw(`LOWER(POSTAL_CODE) LIKE ?`, [`%${lowerSearch}%`])
+                .orWhereRaw(`LOWER(EMAIL) LIKE ?`, [`%${lowerSearch}%`]);
+            });
         }
 
         const dentalService = await query;

@@ -5,6 +5,23 @@
 			<v-col class="d-flex align-top">
 				<span class="title-service">Edit Submission</span>
 			</v-col>
+			<v-col
+				cols="12"
+                sm="12"
+                md="12"
+                lg="4"
+				class="text-right"
+			>
+				<v-btn
+					class="white--text apply-btn mt-2"
+					color="grey darken-1"
+					:to="`/dental/show/${idSubmission}`"
+					id="cancel-btn"
+					@click="cancelEdit"
+				>
+					<v-icon>mdi-close</v-icon>&nbsp;Cancel
+				</v-btn>
+			</v-col>
 		</v-row>
 		<v-row no-gutters>
 				<FormApplicantInformation
