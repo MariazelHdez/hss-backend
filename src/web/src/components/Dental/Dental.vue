@@ -30,7 +30,7 @@
 			>
 				<v-tooltip top>
 					<template v-slot:activator="{ on, attrs }">
-						<v-icon v-bind="attrs" v-on="on" @click="clearSarchInput">mdi-close-circle</v-icon>
+						<v-icon v-bind="attrs" v-on="on" @click="clearSearchInput">mdi-close-circle</v-icon>
 					</template>
 					<span>Clear Keyword Filter</span>
 				</v-tooltip>
@@ -431,7 +431,7 @@
 				this.getDataFromApi();
 			}
 		},
-		clearSarchInput(){
+		clearSearchInput(){
 			this.searchInputQuery = "";
 			this.searchInputDisabled = true;
 			this.getDataFromApi();
