@@ -85,7 +85,10 @@
 
                         </tbody>
 						<tbody v-else>
-							<tr v-if="dentalFiles">
+							<tr
+								v-for="(file) in dentalFiles || []"
+								:key="file.id"
+							>
 								<td>Proof of income</td>
 								<td>
 									<v-icon
@@ -96,14 +99,14 @@
 									>
 									mdi-file
 									</v-icon>
-									{{dentalFiles.file_fullName}}
+									{{file.file_fullName}}
 								</td>
 								<td>
 									<v-btn
 										color="#F3A901"
 										class="pull-right ma-2 white--text apply-btn"
 										v-show="showDownloadButton"
-										@click="downloadFile(dentalFiles.id)"
+										@click="downloadFile(file.id)"
 									>
 										Download &nbsp;
 										<v-icon

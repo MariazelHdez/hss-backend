@@ -11,21 +11,16 @@
 				cols="12"
                 sm="12"
                 md="12"
-                lg="2"
+                lg="4"
 			>
-				<v-select
-					:items="bulkActions"
-					v-model="bulkSelected"
-					solo
-					label="Bulk Actions"
-					append-icon="mdi-chevron-down"
-					prepend-inner-icon="mdi-layers-triple"
-					color="grey lighten-2"
-					item-color="grey lighten-2"
-					@change="enterBulkAction"
-					id="bulk-accion-select"
-				>
-				</v-select>
+				<v-text-field
+					label="Keyword"
+					variant="underlined"
+					prepend-inner-icon="mdi-magnify"
+					v-model="searchInputQuery"
+					@keyup.enter="searchInputData"
+				></v-text-field>
+				<span class="grey--text text-subtitle-2">Search By: First Name, Middle Name, Last Name, Postal Code, Healthcare Card Number or Email</span>
 			</v-col>
 			<v-col
 				cols="12"
@@ -34,14 +29,28 @@
                 lg="1"
 				class="text-center"
 			>
+				<v-tooltip top>
+					<template v-slot:activator="{ on, attrs }">
+						<v-icon v-bind="attrs" v-on="on" @click="clearSearchInput">mdi-close-circle</v-icon>
+					</template>
+					<span>Clear Keyword Filter</span>
+				</v-tooltip>
+			</v-col>
+			<v-col
+				cols="12"
+                sm="12"
+                md="12"
+                lg="1"
+				class="text-left"
+			>
 				<v-btn
 					color="#F3A901"
 					class="white--text apply-btn mt-2"
-					id="apply-btn"
-					:disabled="applyDisabled"
-					@click="submitBulk"
+					id="searchInput-btn"
+					:disabled="!searchInputQuery.trim()"
+					@click="searchInputData"
 				>
-					Apply
+					Search
 				</v-btn>
 			</v-col>
 
@@ -54,7 +63,7 @@
 				<v-select
 					v-model="statusSelected"
 					:items="statusFilter"
-					label="Select"
+					label="Select Status"
 					multiple
 					persistent-hint
 					@change="changeStatusSelect"
@@ -65,7 +74,7 @@
 				cols="12"
                 sm="12"
                 md="12"
-                lg="2"
+                lg="1"
 			>
 				<v-text-field
 					v-model="selectedYear"
@@ -80,7 +89,7 @@
 				cols="12"
                 sm="12"
                 md="12"
-                lg="2"
+                lg="1"
 			>
 				<v-menu
 					ref="menu"
@@ -113,7 +122,7 @@
 				cols="12"
                 sm="12"
                 md="12"
-                lg="2"
+                lg="1"
 			>
 				<v-menu
 					ref="menuEnd"
@@ -146,12 +155,61 @@
                 sm="12"
                 md="12"
                 lg="1"
-                class="btn-reset"
+                class="btn-reset ma-0"
 				v-if="removeFilters"
 			>
-				<v-icon @click="resetInputs"> mdi-filter-remove </v-icon>
+
+				<v-tooltip top>
+					<template v-slot:activator="{ on, attrs }">
+						<v-icon v-bind="attrs" v-on="on" @click="resetInputs"> mdi-filter-remove </v-icon>
+					</template>
+					<span>Clear Filters</span>
+				</v-tooltip>
 			</v-col>
 		</v-row>
+
+		<v-row  class="mb-5 d-flex align-baseline" no-gutters>
+
+			<v-col
+				cols="12"
+                sm="12"
+                md="12"
+                lg="2"
+			>
+				<v-select
+					:items="bulkActions"
+					v-model="bulkSelected"
+					solo
+					label="Bulk Actions"
+					append-icon="mdi-chevron-down"
+					prepend-inner-icon="mdi-layers-triple"
+					color="grey lighten-2"
+					item-color="grey lighten-2"
+					@change="enterBulkAction"
+					id="bulk-accion-select"
+				>
+				</v-select>
+			</v-col>
+
+			<v-col
+				cols="12"
+                sm="12"
+                md="12"
+                lg="1"
+				class="text-center"
+			>
+				<v-btn
+					color="#F3A901"
+					class="white--text apply-btn mt-2"
+					id="apply-btn"
+					:disabled="applyDisabled"
+					@click="submitBulk"
+				>
+					Apply
+				</v-btn>
+			</v-col>
+		</v-row>
+
 		<v-data-table
 			dense
 			v-model="selected"
@@ -184,6 +242,14 @@
 
 	export default {
 	name: "DentalServiceIndex",
+	beforeRouteLeave(to, from, next) {
+
+		if (!to.path.includes('/dental')) {
+			sessionStorage.removeItem('dentalFilters');
+		}
+
+		next();
+	},
 	props: ['type'],
 	data: () => ({
 		loadingTable: false,
@@ -251,6 +317,8 @@
 		allItems: 0,
 		isAllData: false,
 		initialFetch: 1,
+		searchInputDisabled: true,
+		searchInputQuery: '',
 	}),
 	components: {
 		Notifications
@@ -264,6 +332,18 @@
 		}
 	},
 	mounted() {
+
+		const savedFilters = sessionStorage.getItem("dentalFilters");
+		if (savedFilters) {
+			const parsed = JSON.parse(savedFilters);
+
+			this.searchInputQuery = parsed.searchInputQuery || "";
+			this.date = parsed.date || null;
+			this.dateEnd = parsed.dateEnd || null;
+			this.dateYear = parsed.dateYear || null;
+			this.selectedYear = parsed.dateYear || null;
+			this.statusSelected = parsed.statusSelected || null;
+		}
 
 		if (typeof this.$route.query.type !== undefined){
 			if(this.$route.query.type == "status"){
@@ -317,6 +397,8 @@
 			this.selectedYear = null;
 			this.selected = [];
 			this.initialFetch = 1;
+			this.searchInputQuery = "";
+			this.searchInputDisabled = true;
 			this.getDataFromApi();
 		},
 		getDataFromApi() {
@@ -336,6 +418,7 @@
 					sortBy: sortBy.length ? sortBy[0] : null,
 					sortOrder: sortBy.length ? (sortDesc[0] ? 'DESC' : 'ASC') : null,
 					initialFetch: this.initialFetch,
+					searchQuery: this.searchInputQuery,
 				}
 			})
 			.then((resp) => {
@@ -353,6 +436,17 @@
                 } else {
                     this.items = this.fetchedItems;
                 }
+
+				sessionStorage.setItem(
+					"dentalFilters",
+					JSON.stringify({
+					searchInputQuery: this.searchInputQuery,
+					date: this.date,
+					dateEnd: this.dateEnd,
+					dateYear: this.dateYear,
+					statusSelected: this.statusSelected,
+					})
+				);
 			})
 			.catch((err) => console.error(err))
 			.finally(() => {
@@ -375,7 +469,16 @@
             }
         },
 		showDetails(route) {
-			this.$router.push({ path: route });
+			this.$router.push({
+					path: route,
+					query: {
+					searchInputQuery: this.searchInputQuery,
+					date: this.date,
+					dateEnd: this.dateEnd,
+					dateYear: this.selectedYear,
+					statusSelected: JSON.stringify(this.statusSelected),
+				},
+			});
 		},
 		enterSelect() {
 			this.itemsSelected = this.selected;
@@ -427,6 +530,17 @@
                 return items;
             }
         },
+
+		searchInputData() {
+			if(this.searchInputQuery !== null && this.searchInputQuery !== ""){
+				this.getDataFromApi();
+			}
+		},
+		clearSearchInput(){
+			this.searchInputQuery = "";
+			this.searchInputDisabled = true;
+			this.getDataFromApi();
+		},
 	},
 	};
 </script>

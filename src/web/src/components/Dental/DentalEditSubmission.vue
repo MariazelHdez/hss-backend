@@ -5,6 +5,22 @@
 			<v-col class="d-flex align-top">
 				<span class="title-service">Edit Submission</span>
 			</v-col>
+			<v-col
+				cols="12"
+                sm="12"
+                md="12"
+                lg="4"
+				class="text-right"
+			>
+				<v-btn
+					class="white--text apply-btn mt-2"
+					color="grey darken-1"
+					:to="`/dental/show/${idSubmission}`"
+					id="cancel-btn"
+				>
+					<v-icon>mdi-close</v-icon>&nbsp;Cancel
+				</v-btn>
+			</v-col>
 		</v-row>
 		<v-row no-gutters>
 				<FormApplicantInformation
@@ -19,6 +35,7 @@
 				<FormAttachment
 					ref="FormAttachment"
 					v-bind:dentalService="itemsDental"
+					v-bind:dentalFiles="itemsDentalFiles"
 					v-bind:panelModel="panelModel"
 					v-bind:editFields="updatedFields"
 					@addField="addUpdatedFields"
@@ -107,6 +124,7 @@ export default {
 		dbUser: null,
 		dataApplicantInformation: {},
 		dataAttachment: {},
+		dataAttachments: [],
 		dataDependents: {},
 		dataDemographic: {},
 		dataSubmission: {},
@@ -167,7 +185,7 @@ export default {
 			const demographic = this.$refs.FormDemographic;
 
 			this.dataApplicantInformation = applicantInformation.getApplicantInformation();
-			this.dataAttachment = attachment.getAttachment();
+			this.dataAttachments = attachment.getAttachment();
 			this.dataDependents = dependents.getDependents();
 			this.dataDemographic = demographic.getDemographic();
 
@@ -182,12 +200,13 @@ export default {
 		updateSubmission() {
 			this.disableUpdate = true;
 			this.loading = true;
+
 			axios
 			.patch(DENTAL_UPDATE_URL, {
 				params: {
 					idSubmission: this.idSubmission,
 					data: this.dataSubmission,
-					dataFile: this.dataAttachment,
+					dataFiles: this.dataAttachments,
 					dataDependents: this.dataDependents,
 					dataUpdatedFields: this.updatedFields
 				}
