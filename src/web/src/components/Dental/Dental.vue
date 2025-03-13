@@ -332,27 +332,32 @@
 		}
 	},
 	mounted() {
-
 		const savedFilters = sessionStorage.getItem("dentalFilters");
+console.log(savedFilters);
 		if (savedFilters) {
-			const parsed = JSON.parse(savedFilters);
+			try {
+				const parsed = JSON.parse(savedFilters);
 
-			this.searchInputQuery = parsed.searchInputQuery || "";
-			this.date = parsed.date || null;
-			this.dateEnd = parsed.dateEnd || null;
-			this.dateYear = parsed.dateYear || null;
-			this.selectedYear = parsed.dateYear || null;
-			this.statusSelected = parsed.statusSelected || null;
-		}
+				this.searchInputQuery = parsed.searchInputQuery?.trim() || "";
+				this.date = parsed.date || null;
+				this.dateEnd = parsed.dateEnd || null;
+				this.dateYear = parsed.dateYear || null;
+				this.selectedYear = parsed.dateYear || null;
+				this.statusSelected = Array.isArray(parsed.statusSelected) ? parsed.statusSelected : [];
 
-		if (typeof this.$route.query.type !== undefined){
-			if(this.$route.query.type == "status"){
-				this.$refs.notifier.showSuccess(this.statusChangeMessage);
-			}else if(this.$route.query.type == "nonexistent"){
-				this.$refs.notifier.showError(this.nonexistentMessage);
+				this.options.page = parsed.page || 1;
+				this.options.itemsPerPage = parsed.itemsPerPage || 10;
+
+				this.$nextTick(() => {
+					this.getDataFromApi();
+				});
+			} catch (error) {
+				console.error("Error loading saved filters:", error);
+				this.getDataFromApi();
 			}
+		} else {
+			this.getDataFromApi();
 		}
-
 	},
 	methods: {
 		handleYear() {
@@ -430,8 +435,12 @@
 				this.totalItems = resp.data.total;
 				this.allItems = resp.data.all;
 
-				if (this.initialFetch == 1) {
-                    this.items = this.fetchedItems.slice(0, itemsPerPage);
+				if (this.initialFetch === 1) {
+                    const { page, itemsPerPage } = this.options;
+                    const startIndex = (page - 1) * itemsPerPage;
+                    const endIndex = startIndex + itemsPerPage;
+                    
+                    this.items = this.fetchedItems.slice(startIndex, endIndex);
                     this.initialFetch = 0;
                 } else {
                     this.items = this.fetchedItems;
@@ -440,11 +449,13 @@
 				sessionStorage.setItem(
 					"dentalFilters",
 					JSON.stringify({
-					searchInputQuery: this.searchInputQuery,
-					date: this.date,
-					dateEnd: this.dateEnd,
-					dateYear: this.dateYear,
-					statusSelected: this.statusSelected,
+						searchInputQuery: this.searchInputQuery?.trim() || "",
+						date: this.date || null,
+						dateEnd: this.dateEnd || null,
+						dateYear: this.dateYear || null,
+						statusSelected: Array.isArray(this.statusSelected) ? this.statusSelected : [],
+						page: this.options.page,
+						itemsPerPage: this.options.itemsPerPage
 					})
 				);
 			})
@@ -469,15 +480,19 @@
             }
         },
 		showDetails(route) {
+			sessionStorage.setItem(
+				"dentalFilters",
+				JSON.stringify({
+					searchInputQuery: this.searchInputQuery?.trim() || "",
+					date: this.date || null,
+					dateEnd: this.dateEnd || null,
+					dateYear: this.dateYear || null,
+					statusSelected: Array.isArray(this.statusSelected) ? this.statusSelected : [],
+				})
+			);
+
 			this.$router.push({
-					path: route,
-					query: {
-					searchInputQuery: this.searchInputQuery,
-					date: this.date,
-					dateEnd: this.dateEnd,
-					dateYear: this.selectedYear,
-					statusSelected: JSON.stringify(this.statusSelected),
-				},
+				path: route
 			});
 		},
 		enterSelect() {
