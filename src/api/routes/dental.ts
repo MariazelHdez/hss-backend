@@ -307,12 +307,6 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
 
         dentalService.flagFile = true;
 
-        /*if(!_.isEmpty(dentalFiles)){
-            dentalFiles.file_fullName = dentalFiles.file_name+"."+dentalFiles.file_type;
-        }else{
-            dentalService.flagFile = false;
-        }*/
-
         if(!_.isEmpty(dentalFiles)){
             dentalFiles.forEach(function (value: any) {
                 value.file_fullName = value.file_name+"."+value.file_type;
@@ -848,8 +842,9 @@ dentalRouter.get("/duplicates/details/:duplicate_id",[param("duplicate_id").isIn
                     .where('DENTAL_SERVICE_DEPENDENTS.DENTAL_SERVICE_ID', duplicateEntry.duplicated);
 
         dentalFiles = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_FILES`)
-            .where("DENTAL_SERVICE_ID", duplicateEntry.original).select().then((data:any) => {
-                return data.length > 0 ? data[0] : null;
+            .where("DENTAL_SERVICE_ID", duplicateEntry.original).select()
+            .then((rows: any[]) => {
+                return rows.length > 0 ? rows : null;
             });
 
         if(!_.isEmpty(dentalFiles)){
@@ -858,8 +853,9 @@ dentalRouter.get("/duplicates/details/:duplicate_id",[param("duplicate_id").isIn
         }
 
         dentalFilesDuplicated = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_FILES`)
-            .where("DENTAL_SERVICE_ID", duplicateEntry.duplicated).select().then((data:any) => {
-                return data.length > 0 ? data[0] : null;
+            .where("DENTAL_SERVICE_ID", duplicateEntry.duplicated).select()
+            .then((rows: any[]) => {
+                return rows.length > 0 ? rows : null;
             });
 
         if(!_.isEmpty(dentalFilesDuplicated)){
@@ -1507,7 +1503,6 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
                     !_.isNull(df.FILE_NAME) &&
                     !df.PROOF_INCOME
                 ) {
-                    console.log(df);
                     dentalFiles.DENTAL_SERVICE_ID = idSubmission;
                     dentalFiles.DESCRIPTION = df.DESCRIPTION;
                     dentalFiles.FILE_NAME = df.FILE_NAME;
