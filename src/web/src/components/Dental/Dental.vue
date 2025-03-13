@@ -235,6 +235,14 @@
 
 	export default {
 	name: "DentalServiceIndex",
+	beforeRouteLeave(to, from, next) {
+
+		if (!to.path.includes('/dental')) {
+			sessionStorage.removeItem('dentalFilters');
+		}
+
+		next();
+	},
 	props: ['type'],
 	data: () => ({
 		loading: false,
@@ -316,6 +324,18 @@
 	},
 	mounted() {
 
+		const savedFilters = sessionStorage.getItem("dentalFilters");
+		if (savedFilters) {
+			const parsed = JSON.parse(savedFilters);
+
+			this.searchInputQuery = parsed.searchInputQuery || "";
+			this.date = parsed.date || null;
+			this.dateEnd = parsed.dateEnd || null;
+			this.dateYear = parsed.dateYear || null;
+			this.selectedYear = parsed.dateYear || null;
+			this.statusSelected = parsed.statusSelected || null;
+		}
+
 		if (typeof this.$route.query.type !== undefined){
 			if(this.$route.query.type == "status"){
 				this.$refs.notifier.showSuccess(this.statusChangeMessage);
@@ -382,6 +402,17 @@
 				this.statusFilter = resp.data.dataStatus.filter((element) => element.value != 4);
 				this.loading = false;
 				this.dateDisabled = false;
+
+				sessionStorage.setItem(
+					"dentalFilters",
+					JSON.stringify({
+					searchInputQuery: this.searchInputQuery,
+					date: this.date,
+					dateEnd: this.dateEnd,
+					dateYear: this.dateYear,
+					statusSelected: this.statusSelected,
+					})
+				);
 			})
 			.catch((err) => console.error(err))
 			.finally(() => {
@@ -389,7 +420,16 @@
 			});
 		},
 		showDetails(route) {
-			this.$router.push({ path: route });
+			this.$router.push({
+					path: route,
+					query: {
+					searchInputQuery: this.searchInputQuery,
+					date: this.date,
+					dateEnd: this.dateEnd,
+					dateYear: this.selectedYear,
+					statusSelected: JSON.stringify(this.statusSelected),
+				},
+			});
 		},
 		enterSelect() {
 			this.itemsSelected = this.selected;
