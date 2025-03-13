@@ -243,11 +243,18 @@
 	export default {
 	name: "DentalServiceIndex",
 	beforeRouteLeave(to, from, next) {
-
-		if (!to.path.includes('/dental')) {
-			sessionStorage.removeItem('dentalFilters');
-		}
-
+		sessionStorage.setItem(
+			"dentalFilters",
+			JSON.stringify({
+				searchInputQuery: this.searchInputQuery?.trim() || "",
+				date: this.date || null,
+				dateEnd: this.dateEnd || null,
+				dateYear: this.dateYear || null,
+				statusSelected: Array.isArray(this.statusSelected) ? this.statusSelected : [],
+				page: this.options.page,
+				itemsPerPage: this.options.itemsPerPage
+			})
+		);
 		next();
 	},
 	props: ['type'],
@@ -319,6 +326,7 @@
 		initialFetch: 1,
 		searchInputDisabled: true,
 		searchInputQuery: '',
+		filtersRestored: false
 	}),
 	components: {
 		Notifications
@@ -333,7 +341,6 @@
 	},
 	mounted() {
 		const savedFilters = sessionStorage.getItem("dentalFilters");
-console.log(savedFilters);
 		if (savedFilters) {
 			try {
 				const parsed = JSON.parse(savedFilters);
@@ -344,10 +351,9 @@ console.log(savedFilters);
 				this.dateYear = parsed.dateYear || null;
 				this.selectedYear = parsed.dateYear || null;
 				this.statusSelected = Array.isArray(parsed.statusSelected) ? parsed.statusSelected : [];
-
 				this.options.page = parsed.page || 1;
 				this.options.itemsPerPage = parsed.itemsPerPage || 10;
-
+				this.filtersRestored = true;
 				this.$nextTick(() => {
 					this.getDataFromApi();
 				});
@@ -434,7 +440,6 @@ console.log(savedFilters);
 				this.dateDisabled = false;
 				this.totalItems = resp.data.total;
 				this.allItems = resp.data.all;
-
 				if (this.initialFetch === 1) {
                     const { page, itemsPerPage } = this.options;
                     const startIndex = (page - 1) * itemsPerPage;
@@ -465,10 +470,13 @@ console.log(savedFilters);
 			});
 		},
 		handlePagination() {
+			if (!this.filtersRestored) {
+				return;
+			}
+
             const { page, itemsPerPage, sortBy, sortDesc } = this.options;
             const startIndex = (page - 1) * itemsPerPage;
             const endIndex = startIndex + itemsPerPage;
-
             if (sortBy.length || sortDesc.length) {
                 this.getDataFromApi();
             } else {
