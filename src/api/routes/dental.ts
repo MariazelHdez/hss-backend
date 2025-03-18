@@ -98,6 +98,7 @@ dentalRouter.post("/", async (req: Request, res: Response) => {
         var dateYear = req.body.params.dateYear;
         let status_request = req.body.params.status;
         let searchQuery = req.body.params.searchQuery;
+        const archivedFlag = req.body.params?.archivedFlag ?? false;
 
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
         let query = db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_SUBMISSIONS`)
@@ -114,8 +115,10 @@ dentalRouter.post("/", async (req: Request, res: Response) => {
                 [dateFrom, dateTo]));
         }
 
-        if (status_request) {
+        if (status_request && !archivedFlag) {
             query.whereIn("STATUS", status_request);
+        }else if (archivedFlag) {
+            query.where("STATUS", 6);
         }
 
         if (searchQuery) {
@@ -253,6 +256,7 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
         var dentalInternalFields = Object();
         var dentalComments = Object();
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
+        let archivedFlag = false;
 
         dentalService = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_SUBMISSIONS_DETAILS`)
             .where('ID', dentalService_id)
@@ -405,6 +409,10 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
 
         var statusDental =  await db(`${SCHEMA_DENTAL}.DENTAL_STATUS`).where("DESCRIPTION", "Closed").select().first();
 
+        if(dentalService.status == 6){
+            archivedFlag = true;
+        }
+
         let today = new Date();
         let dd = String(today.getDate()).padStart(2, '0');
         let mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -460,7 +468,8 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
             dataPaymentMethods: dentalPaymentMethods,
             dataDentalBarriers: dentalBarriers,
             dataDentalProblems: dentalProblems,
-            dataDentalNeedServices: dentalNeedServices
+            dataDentalNeedServices: dentalNeedServices,
+            archivedFlag: archivedFlag
         });
     } catch(e) {
         console.log(e);  // debug if needed
@@ -484,7 +493,9 @@ dentalRouter.post("/export/", async (req: Request, res: Response) => {
         let status_request = req.body.params.status;
         var dateFrom = req.body.params.dateFrom;
         var dateTo = req.body.params.dateTo;
-        var dateYear = req.body.params.dateYear
+        var dateYear = req.body.params.dateYear;
+        let searchQuery = req.body.params.searchQuery;
+        const archivedFlag = req.body.params?.archivedFlag ?? false;
         const idSubmission: number[] = [];
         var dentalInternalFields = Object();
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
@@ -508,8 +519,24 @@ dentalRouter.post("/export/", async (req: Request, res: Response) => {
                 [dateFrom, dateTo]));
         }
 
-        if (status_request) {
+        if (status_request && !archivedFlag) {
             query.whereIn("DENTAL_SERVICE_SUBMISSIONS_DETAILS.STATUS", status_request);
+        }else if (archivedFlag) {
+            query.where("DENTAL_SERVICE_SUBMISSIONS_DETAILS.STATUS", 6);
+
+            if (searchQuery) {
+                const lowerSearch = searchQuery.toLowerCase();
+
+                query.where(function () {
+                    this.whereRaw(`LOWER(FIRST_NAME) LIKE ?`, [`%${lowerSearch}%`])
+                    .orWhereRaw(`LOWER(MIDDLE_NAME) LIKE ?`, [`%${lowerSearch}%`])
+                    .orWhereRaw(`LOWER(LAST_NAME) LIKE ?`, [`%${lowerSearch}%`])
+                    .orWhereRaw(`LOWER(HEALTH_CARD_NUMBER) LIKE ?`, [`%${lowerSearch}%`])
+                    .orWhereRaw(`LOWER(POSTAL_CODE) LIKE ?`, [`%${lowerSearch}%`])
+                    .orWhereRaw(`LOWER(EMAIL) LIKE ?`, [`%${lowerSearch}%`]);
+                });
+            }
+
         }
 
         query.orderBy('ID', 'ASC');
@@ -1837,7 +1864,7 @@ async function getAllStatus(): Promise<any[]>{
     db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
 
     dentalServiceStatus = await db(`${SCHEMA_DENTAL}.DENTAL_STATUS`).select()
-    .whereNot('ID', 4).then((rows: any) => {
+    .whereNot('ID', 4).orderBy('ID', 'ASC').then((rows: any) => {
 
         let arrayResult = Array();
 

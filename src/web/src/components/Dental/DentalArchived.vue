@@ -52,23 +52,6 @@
 					Search
 				</v-btn>
 			</v-col>
-
-			<v-col
-				cols="12"
-                sm="12"
-                md="12"
-                lg="2"
-			>
-				<v-select
-					v-model="statusSelected"
-					:items="statusFilter"
-					label="Select Status"
-					multiple
-					persistent-hint
-					@change="changeStatusSelect"
-				></v-select>
-
-			</v-col>
 			<v-col
 				cols="12"
                 sm="12"
@@ -165,46 +148,28 @@
 					<span>Clear Filters</span>
 				</v-tooltip>
 			</v-col>
-		</v-row>
-
-		<v-row  class="mb-5 d-flex align-baseline" no-gutters>
 
 			<v-col
-				cols="12"
-                sm="12"
-                md="12"
-                lg="2"
-			>
-				<v-select
-					:items="bulkActions"
-					v-model="bulkSelected"
-					solo
-					label="Bulk Actions"
-					append-icon="mdi-chevron-down"
-					prepend-inner-icon="mdi-layers-triple"
-					color="grey lighten-2"
-					item-color="grey lighten-2"
-					@change="enterBulkAction"
-					id="bulk-accion-select"
-				>
-				</v-select>
-			</v-col>
-
-			<v-col
-				cols="12"
-                sm="12"
-                md="12"
-                lg="1"
-				class="text-center"
+				cols="10"
+				sm="10"
+				md="10"
+				lg="2"
 			>
 				<v-btn
+					:loading="loadingExport"
+					:disabled="loadingExport"
 					color="#F3A901"
-					class="white--text apply-btn mt-2"
-					id="apply-btn"
-					:disabled="applyDisabled"
-					@click="submitBulk"
+					class="ma-2 white--text apply-btn"
+					@click="exportFile()"
+					id="export-btn"
 				>
-					Apply
+					Export
+					<v-icon
+						right
+						dark
+					>
+						mdi-cloud-download
+					</v-icon>
 				</v-btn>
 			</v-col>
 		</v-row>
@@ -230,7 +195,8 @@
 
 <script>
 	const axios = require("axios");
-	import { DENTAL_URL } from "../../urls.js";
+	import { DENTAL_URL, DENTAL_EXPORT_FILE_URL } from "../../urls.js";
+	import { utils, writeFileXLSX } from "xlsx";
 	import Notifications from "../Notifications.vue";
 
 	export default {
@@ -248,7 +214,7 @@
 		loading: false,
 		bulkSelected: [],
 		items: [],
-		statusSelected: [1],
+		statusSelected: [],
 		date: null,
 		selectedYear: null,
 		dateYear: null,
@@ -304,6 +270,7 @@
 		alignments: "center",
 		searchInputDisabled: true,
 		searchInputQuery: '',
+		archivedFlag: true,
 	}),
 	components: {
 		Notifications
@@ -394,14 +361,13 @@
 					dateYear: this.dateYear,
 					status: this.statusSelected,
 					searchQuery: this.searchInputQuery,
+					archivedFlag: this.archivedFlag,
 				}
 			})
 			.then((resp) => {
 				this.items = resp.data.data;
 				this.bulkActions = resp.data.dataStatus;
-				this.statusFilter = resp.data.dataStatus.filter(
-										(element) => element.value !== 4 && element.value !== 6
-									);
+				this.statusFilter = resp.data.dataStatus.filter((element) => element.value != 4);
 				this.loading = false;
 				this.dateDisabled = false;
 
@@ -425,12 +391,12 @@
 			this.$router.push({
 					path: route,
 					query: {
-					searchInputQuery: this.searchInputQuery,
-					date: this.date,
-					dateEnd: this.dateEnd,
-					dateYear: this.selectedYear,
-					statusSelected: JSON.stringify(this.statusSelected),
-				},
+						searchInputQuery: this.searchInputQuery,
+						date: this.date,
+						dateEnd: this.dateEnd,
+						dateYear: this.selectedYear,
+						statusSelected: JSON.stringify(this.statusSelected),
+					},
 			});
 		},
 		enterSelect() {
@@ -477,6 +443,98 @@
 			this.searchInputQuery = "";
 			this.searchInputDisabled = true;
 			this.getDataFromApi();
+		},
+		exportFile () {
+			var idArray = [];
+			this.selected.forEach((e) => {
+				idArray.push(e.id);
+			});
+
+			axios
+			.post(DENTAL_EXPORT_FILE_URL, {
+				params: {
+					requests: idArray,
+					status: this.selectedStatus,
+					dateFrom: this.date,
+					dateTo: this.dateEnd,
+					dateYear: this.dateYear,
+					searchQuery: this.searchInputQuery,
+					archivedFlag: this.archivedFlag
+				}
+			}).then((resp) => {
+				const ws = utils.json_to_sheet(resp.data.dataDental);
+				const wb = utils.book_new();
+				utils.book_append_sheet(wb, ws, "Dental Service Requests");
+
+				utils.sheet_add_aoa(
+				ws,
+				[
+					[
+					"FIRST NAME",
+					"MIDDLE NAME",
+					"LAST NAME",
+					"DATE OF BIRTH",
+					"HEALTH CARD NUMBER",
+					"MAILING ADDRESS",
+					"CITY OR TOWN",
+					"POSTAL CODE",
+					"PHONE",
+					"EMAIL",
+					"OTHER COVERAGE",
+					"ELIGIBLE PHARMACARE",
+					"EMAIL INSTEAD",
+					"HAVE CHILDREN",
+					"ASK DEMOGRAPHIC",
+					"IDENTIFY GROUPS",
+					"GENDER",
+					"EDUCATION",
+					"OFTEN BRUSH",
+					"STATE TEETH",
+					"OFTEN FLOSS",
+					"STATE GUMS",
+					"LAST SAW DENTIST",
+					"REASON FOR DENTIST",
+					"BUY SUPPLIES",
+					"PAY FOR VISIT",
+					"BARRIERS",
+					"PROBLEMS",
+					"SERVICES NEEDED",
+					"CREATED AT",
+					"PROOF OF INCOME ATTACHMENT",
+					"PROGRAM YEAR",
+					"INCOME AMOUNT",
+					"DATE OF ENROLLMENT",
+					"POLICY NUMBER",
+					"INTERNAL FIELD CREATED AT"
+					],
+				],
+				{ origin: "A1" }
+				);
+				const ws2 = utils.json_to_sheet(resp.data.dataDependents);
+				utils.book_append_sheet(wb, ws2, "Dental Service Dependents");
+				utils.sheet_add_aoa(
+				ws2,
+				[
+					[
+					"APPLICANT NAME",
+					"FIRST NAME",
+					"LAST NAME",
+					"DATE OF BIRTH",
+					"HEALTHCARE",
+					"APPLY",
+					],
+				],
+				{ origin: "A1" }
+				);
+
+				writeFileXLSX(wb, "DentalService_ArchivedRequests.xlsx");
+
+				this.loading = false;
+			})
+			.catch((err) => console.error(err))
+			.finally(() => {
+				this.loading = false;
+			});
 		},
 	},
 	};
