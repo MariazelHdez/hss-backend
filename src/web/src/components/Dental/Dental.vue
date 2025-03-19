@@ -217,9 +217,15 @@
 			:items="items"
 			:headers="headers"
 			:options.sync="options"
-			:loading="loading"
+			:loading="loadingTable"
 			:search="search"
 			@input="enterSelect"
+
+			:server-items-length="totalItems"
+			@update:options="handlePagination"
+			:footer-props="{
+                'items-per-page-options': itemsPerPage
+            }"
 		>
 			<template v-slot:[`item.showurl`]="{ item }">
 				<v-icon @click="showDetails(item.showurl)">mdi-eye</v-icon>
@@ -245,9 +251,10 @@
 	},
 	props: ['type'],
 	data: () => ({
-		loading: false,
+		loadingTable: false,
 		bulkSelected: [],
 		items: [],
+		fetchedItems: [],
 		statusSelected: [1],
 		date: null,
 		selectedYear: null,
@@ -263,7 +270,10 @@
 		itemsSelected: [],
 		search: "",
 		applyDisabled: true,
-		options: {},
+		options: {
+			page: 1,
+			itemsPerPage: 10
+		},
 		flagAlert: false,
 		statusChangeMessage: "Status changed successfully.",
 		nonexistentMessage: "The submission you are consulting is closed or non existant, please choose a valid submission.",
@@ -298,23 +308,21 @@
 		{ text: "Status", value: "status_description", sortable: true },
 		{ text: "", value: "showurl", sortable: false },
 		],
-		page: 1,
-		pageCount: 0,
-		iteamsPerPage: 10,
 		alignments: "center",
 		searchInputDisabled: true,
 		searchInputQuery: '',
+		totalItems: 0,
+		initialPage: 1,
+		initialItemsPerPage: 10,
+		itemsPerPage: [10, 15, 50, 100, -1],
+		allItems: 0,
+		isAllData: false,
+		initialFetch: 1,
 	}),
 	components: {
 		Notifications
 	},
 	watch: {
-		options: {
-			handler() {
-				this.getDataFromApi();
-			},
-			deep: true,
-		},
 		search: {
 			handler() {
 				this.getDataFromApi();
@@ -344,7 +352,6 @@
 			}
 		}
 
-		this.getDataFromApi();
 	},
 	methods: {
 		handleYear() {
@@ -355,20 +362,28 @@
 				this.date = null;
 				this.dateEnd = null;
 				this.selected = [];
+				this.options.page = this.initialPage;
+				this.options.itemsPerPage = this.initialItemsPerPage;
 				this.getDataFromApi();
 			}
 		},
 		changeStatusSelect(){
 			this.selected = [];
+			this.options.page = this.initialPage;
+			this.options.itemsPerPage = this.initialItemsPerPage;
 			this.getDataFromApi();
 		},
 		updateDate(){
 			if(this.date !== null && this.dateEnd !== null){
 				this.selected = [];
+				this.options.page = this.initialPage;
+				this.options.itemsPerPage = this.initialItemsPerPage;
 				this.getDataFromApi();
 			}
 		},
 		removeFilters() {
+			this.options.page = this.initialPage;
+			this.options.itemsPerPage = this.initialItemsPerPage;
 			return this.date || this.dateEnd || this.statusSelected || this.dateYear || this.selectedYear;
 		},
 		resetInputs() {
@@ -382,10 +397,14 @@
 			this.selected = [];
 			this.searchInputQuery = "";
 			this.searchInputDisabled = true;
+			this.initialFetch = 1;
 			this.getDataFromApi();
 		},
 		getDataFromApi() {
-			this.loading = true;
+			this.loadingTable = true;
+			this.items = [];
+			const { page, itemsPerPage, sortBy, sortDesc } = this.options;
+
 			axios
 			.post(DENTAL_URL, {
 				params: {
@@ -394,33 +413,62 @@
 					dateYear: this.dateYear,
 					status: this.statusSelected,
 					searchQuery: this.searchInputQuery,
+					page: page,
+					pageSize: itemsPerPage,
+					sortBy: sortBy.length ? sortBy[0] : null,
+					sortOrder: sortBy.length ? (sortDesc[0] ? 'DESC' : 'ASC') : null,
+					initialFetch: this.initialFetch,
 				}
 			})
 			.then((resp) => {
-				this.items = resp.data.data;
+				this.fetchedItems = resp.data.data;
 				this.bulkActions = resp.data.dataStatus;
 				this.statusFilter = resp.data.dataStatus.filter(
 										(element) => element.value !== 4 && element.value !== 6
 									);
-				this.loading = false;
+				this.loadingTable = false;
 				this.dateDisabled = false;
+				this.totalItems = resp.data.total;
+				this.allItems = resp.data.all;
 
 				sessionStorage.setItem(
 					"dentalFilters",
 					JSON.stringify({
-					searchInputQuery: this.searchInputQuery,
-					date: this.date,
-					dateEnd: this.dateEnd,
-					dateYear: this.dateYear,
-					statusSelected: this.statusSelected,
+						searchInputQuery: this.searchInputQuery,
+						date: this.date,
+						dateEnd: this.dateEnd,
+						dateYear: this.dateYear,
+						statusSelected: this.statusSelected,
 					})
 				);
+
+				if (this.initialFetch == 1) {
+                    this.items = this.fetchedItems.slice(0, itemsPerPage);
+                    this.initialFetch = 0;
+                } else {
+                    this.items = this.fetchedItems;
+                }
 			})
 			.catch((err) => console.error(err))
 			.finally(() => {
-				this.loading = false;
+				this.loadingTable = false;
 			});
 		},
+		handlePagination() {
+            const { page, itemsPerPage, sortBy, sortDesc } = this.options;
+            const startIndex = (page - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+
+            if (sortBy.length || sortDesc.length) {
+                this.getDataFromApi();
+            } else {
+                if (this.fetchedItems.length >= endIndex) {
+                    this.items = this.fetchedItems.slice(startIndex, endIndex);
+                } else {
+                    this.getDataFromApi();
+                }
+            }
+        },
 		showDetails(route) {
 			this.$router.push({
 					path: route,
@@ -478,6 +526,21 @@
 			this.searchInputDisabled = true;
 			this.getDataFromApi();
 		},
+		sortItems(items, sortBy, sortDesc) {
+            if (sortBy.length) {
+                let sorted = items.sort((a, b) => {
+                    const sortKey = sortBy[0];
+                    const sortOrder = sortDesc[0] ? -1 : 1;
+                    if (a[sortKey] < b[sortKey]) return -1 * sortOrder;
+                    if (a[sortKey] > b[sortKey]) return 1 * sortOrder;
+                    return 0;
+                });
+
+                return sorted;
+            }else{
+                return items;
+            }
+        },
 	},
 	};
 </script>
