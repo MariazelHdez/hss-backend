@@ -8,50 +8,41 @@
 		<br>
 		<v-row class="submission-filters mb-5" no-gutters>
 			<v-col
-				cols="12"
-                sm="12"
-                md="12"
+				cols="10"
+                sm="6"
+                md="5"
                 lg="4"
 			>
-				<v-text-field
-					label="Keyword"
-					variant="underlined"
-					prepend-inner-icon="mdi-magnify"
-					v-model="searchInputQuery"
-				></v-text-field>
-				<span class="grey--text text-subtitle-2">Search By: First Name, Middle Name, Last Name, Postal Code, Healthcare Card Number or Email</span>
+				<div class="d-flex align-center pr-2">
+
+					<v-text-field
+						label="Keyword"
+						variant="underlined"
+						prepend-inner-icon="mdi-magnify"
+						v-model="searchInputQuery"
+						hint="Search By: First Name, Middle Name, Last Name, Postal Code, Healthcare Card Number, or Email"
+						persistent-hint
+						@keyup.enter="searchInputData"
+					></v-text-field>
+
+					<v-tooltip top>
+						<template v-slot:activator="{ on, attrs }">
+							<v-icon v-bind="attrs" v-on="on" @click="clearSearchInput">mdi-close-circle</v-icon>
+						</template>
+						<span>Clear Keyword Filter</span>
+					</v-tooltip>
+					<v-btn
+						color="#F3A901"
+						class="white--text apply-btn mt-2"
+						id="searchInput-btn"
+						:disabled="!searchInputQuery.trim()"
+						@click="searchInputData"
+					>
+						Search
+					</v-btn>
+				</div>	
 			</v-col>
-			<v-col
-				cols="12"
-                sm="12"
-                md="12"
-                lg="1"
-				class="text-center"
-			>
-				<v-tooltip top>
-					<template v-slot:activator="{ on, attrs }">
-						<v-icon v-bind="attrs" v-on="on" @click="clearSearchInput">mdi-close-circle</v-icon>
-					</template>
-					<span>Clear Keyword Filter</span>
-				</v-tooltip>
-			</v-col>
-			<v-col
-				cols="12"
-                sm="12"
-                md="12"
-                lg="1"
-				class="text-left"
-			>
-				<v-btn
-					color="#F3A901"
-					class="white--text apply-btn mt-2"
-					id="searchInput-btn"
-					:disabled="!searchInputQuery.trim()"
-					@click="searchInputData"
-				>
-					Search
-				</v-btn>
-			</v-col>
+
 			<v-col
 				cols="12"
                 sm="12"
@@ -71,7 +62,7 @@
 				cols="12"
                 sm="12"
                 md="12"
-                lg="1"
+                lg="2"
 			>
 				<v-menu
 					ref="menu"
@@ -104,7 +95,7 @@
 				cols="12"
                 sm="12"
                 md="12"
-                lg="1"
+                lg="2"
 			>
 				<v-menu
 					ref="menuEnd"
@@ -203,9 +194,17 @@
 	name: "DentalServiceIndex",
 	beforeRouteLeave(to, from, next) {
 
-		if (!to.path.includes('/dental')) {
-			sessionStorage.removeItem('dentalFilters');
-		}
+		sessionStorage.setItem(
+			"dentalArchiveFilters",
+			JSON.stringify({
+				searchInputQuery: this.searchInputQuery,
+				date: this.date,
+				dateEnd: this.dateEnd,
+				dateYear: this.dateYear,
+				selectedYear: this.selectedYear,
+				statusSelected: this.statusSelected,
+			})
+		);
 
 		next();
 	},
@@ -291,7 +290,7 @@
 	},
 	mounted() {
 
-		const savedFilters = sessionStorage.getItem("dentalFilters");
+		const savedFilters = sessionStorage.getItem("dentalArchiveFilters");
 		if (savedFilters) {
 			const parsed = JSON.parse(savedFilters);
 
@@ -372,7 +371,7 @@
 				this.dateDisabled = false;
 
 				sessionStorage.setItem(
-					"dentalFilters",
+					"dentalArchiveFilters",
 					JSON.stringify({
 					searchInputQuery: this.searchInputQuery,
 					date: this.date,
