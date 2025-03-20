@@ -434,6 +434,7 @@
 			}
 		},
 		searchInputData() {
+			this.searchInputQuery = this.searchInputQuery.trim();
 			if(this.searchInputQuery !== null && this.searchInputQuery !== ""){
 				this.getDataFromApi();
 			}

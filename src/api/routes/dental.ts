@@ -107,9 +107,18 @@ dentalRouter.post("/", async (req: Request, res: Response) => {
         let status_request = req.body.params.status;
         let searchQuery = req.body.params.searchQuery;
         const archivedFlag = req.body.params?.archivedFlag ?? false;
+        const exportFlag = req.body.params?.exportFlag ?? false;
+
 
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
         let query = db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_SUBMISSIONS`)
+
+        if (!archivedFlag && !exportFlag) {
+            query.whereNotIn("STATUS", [4, 6]);
+        } else if (exportFlag) {
+            query.whereNotIn("STATUS", [4]);
+        }
+       
 
         const countAllQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
 
@@ -130,8 +139,9 @@ dentalRouter.post("/", async (req: Request, res: Response) => {
         }
 
         if (searchQuery) {
-            const lowerSearch = searchQuery.toLowerCase();
-
+            const sanitizedSearch = searchQuery.trim().replace(/[^a-zA-Z0-9\s@.-]/g, "");
+            const lowerSearch = sanitizedSearch.toLowerCase();
+            
             query.where(function () {
                 this.whereRaw(`LOWER(FIRST_NAME) LIKE ?`, [`%${lowerSearch}%`])
                 .orWhereRaw(`LOWER(MIDDLE_NAME) LIKE ?`, [`%${lowerSearch}%`])
@@ -154,21 +164,6 @@ dentalRouter.post("/", async (req: Request, res: Response) => {
             query = query.offset(offset).limit(pageSize);
         }else if(initialFetch == 1){
             query = query.offset(offset).limit(100);
-        }
-
-        if (searchQuery) {
-            const sanitizedSearch = searchQuery.trim().replace(/[^a-zA-Z0-9\s@.-]/g, "");
-            const lowerSearch = sanitizedSearch.toLowerCase();
-
-            query.where(function () {
-                this.whereRaw(`LOWER(FIRST_NAME) LIKE ?`, [`%${lowerSearch}%`])
-                .orWhereRaw(`LOWER(MIDDLE_NAME) LIKE ?`, [`%${lowerSearch}%`])
-                .orWhereRaw(`LOWER(LAST_NAME) LIKE ?`, [`%${lowerSearch}%`])
-                .orWhereRaw(`LOWER(HEALTH_CARD_NUMBER) LIKE ?`, [`%${lowerSearch}%`])
-                .orWhereRaw(`LOWER(POSTAL_CODE) LIKE ?`, [`%${lowerSearch}%`])
-                .orWhereRaw(`LOWER(EMAIL) LIKE ?`, [`%${lowerSearch}%`]);
-            });
-
         }
 
         const dentalService = await query;
