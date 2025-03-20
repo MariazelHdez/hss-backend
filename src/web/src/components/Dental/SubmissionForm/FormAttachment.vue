@@ -210,6 +210,15 @@ export default {
 				this.updatedFields.push("PROOF_INCOME");
 				this.$emit("addField", "PROOF_INCOME");
 			}
+
+			if (this.checkProofIncome) {
+				this.deletedFiles = [];
+				this.deletedFiles = this.dentalFiles.map(file => file.id);
+			} else {
+				this.deletedFiles = [];
+
+				this.restoreExistingFiles();
+			}
 		},
 		downloadExistingFile(fileObj) {
 			axios
@@ -301,6 +310,19 @@ export default {
 				attachmentFiles: [...existing, ...newlyAdded],
 				deletedFiles: this.deletedFiles
 			};
+		},
+		restoreExistingFiles() {
+			if (Array.isArray(this.dentalFiles) && this.dentalFiles.length) {
+				this.existingFiles = this.dentalFiles.map(dbFile => ({
+					fileId: dbFile.id,
+					fileFullName: dbFile.file_fullName
+				}));
+			} else if (this.dentalFiles.file_name) {
+				this.existingFiles.push({
+					fileId: this.dentalFiles.file_id,
+					fileFullName: this.dentalFiles.file_name + '.' + this.dentalFiles.file_type
+				});
+			}
 		},
 	},
 };

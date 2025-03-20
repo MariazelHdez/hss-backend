@@ -106,6 +106,7 @@ dentalRouter.post("/", async (req: Request, res: Response) => {
         var dateYear = req.body.params.dateYear;
         let status_request = req.body.params.status;
         let searchQuery = req.body.params.searchQuery;
+        const archivedFlag = req.body.params?.archivedFlag ?? false;
 
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
         let query = db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_SUBMISSIONS`)
@@ -122,10 +123,24 @@ dentalRouter.post("/", async (req: Request, res: Response) => {
             query.where(db.raw("TO_CHAR(?, 'YYYY-MM-DD') BETWEEN ? AND ?", [createdAt, dateFrom, dateTo]));
         }
 
-        if (status_request && status_request.length > 0) {
+        if (status_request && status_request.length > 0 && !archivedFlag) {
             query.whereIn("STATUS", status_request);
+        }else if (archivedFlag) {
+            query.where("STATUS", 6);
         }
 
+        if (searchQuery) {
+            const lowerSearch = searchQuery.toLowerCase();
+
+            query.where(function () {
+                this.whereRaw(`LOWER(FIRST_NAME) LIKE ?`, [`%${lowerSearch}%`])
+                .orWhereRaw(`LOWER(MIDDLE_NAME) LIKE ?`, [`%${lowerSearch}%`])
+                .orWhereRaw(`LOWER(LAST_NAME) LIKE ?`, [`%${lowerSearch}%`])
+                .orWhereRaw(`LOWER(HEALTH_CARD_NUMBER) LIKE ?`, [`%${lowerSearch}%`])
+                .orWhereRaw(`LOWER(POSTAL_CODE) LIKE ?`, [`%${lowerSearch}%`])
+                .orWhereRaw(`LOWER(EMAIL) LIKE ?`, [`%${lowerSearch}%`]);
+            });
+        }
 
         const countQuery = query.clone();
 
@@ -279,6 +294,7 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
         var dentalInternalFields = Object();
         var dentalComments = Object();
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
+        let archivedFlag = false;
 
         dentalService = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_SUBMISSIONS_DETAILS`)
             .where('ID', dentalService_id)
@@ -332,12 +348,6 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
                         .where("DENTAL_SERVICE_ID", dentalService_id);
 
         dentalService.flagFile = true;
-
-        /*if(!_.isEmpty(dentalFiles)){
-            dentalFiles.file_fullName = dentalFiles.file_name+"."+dentalFiles.file_type;
-        }else{
-            dentalService.flagFile = false;
-        }*/
 
         if(!_.isEmpty(dentalFiles)){
             dentalFiles.forEach(function (value: any) {
@@ -413,6 +423,10 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
 
         var statusDental =  await db(`${SCHEMA_DENTAL}.DENTAL_STATUS`).where("DESCRIPTION", "Closed").select().first();
 
+        if(dentalService.status == 6){
+            archivedFlag = true;
+        }
+
         let today = new Date();
         let dd = String(today.getDate()).padStart(2, '0');
         let mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -468,7 +482,8 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
             dataPaymentMethods: dentalPaymentMethods,
             dataDentalBarriers: dentalBarriers,
             dataDentalProblems: dentalProblems,
-            dataDentalNeedServices: dentalNeedServices
+            dataDentalNeedServices: dentalNeedServices,
+            archivedFlag: archivedFlag
         });
     } catch(e) {
         console.log(e);  // debug if needed
@@ -489,29 +504,42 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
 dentalRouter.post("/export/", async (req: Request, res: Response) => {
     try {
         const { requests, status: status_request, dateFrom, dateTo, dateYear, isAllData, offset, limit } = req.body.params;
+        let searchQuery = req.body.params.searchQuery;
+        const archivedFlag = req.body.params?.archivedFlag ?? false;
         const idSubmissions: number[] = [];
         let dentalInternalFields = Object();
+
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
         let userId = req.user?.db_user.user.id || null;
 
         let query = db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_SUBMISSIONS_DETAILS`)
-        .leftJoin(`${SCHEMA_DENTAL}.DENTAL_SERVICE_INTERNAL_FIELDS`, 
-            "DENTAL_SERVICE_SUBMISSIONS_DETAILS.ID", 
-            "DENTAL_SERVICE_INTERNAL_FIELDS.DENTAL_SERVICE_ID"
-        )
-        .select(
-            "DENTAL_SERVICE_SUBMISSIONS_DETAILS.*",
-            "DENTAL_SERVICE_INTERNAL_FIELDS.PROGRAM_YEAR as program_year",
-            db.raw(`CASE
-                    WHEN COALESCE(DENTAL_SERVICE_INTERNAL_FIELDS.INCOME_AMOUNT, 0) = TRUNC(COALESCE(DENTAL_SERVICE_INTERNAL_FIELDS.INCOME_AMOUNT, 0))
-                    THEN TO_CHAR(COALESCE(DENTAL_SERVICE_INTERNAL_FIELDS.INCOME_AMOUNT, 0), 'FM9999999')
-                    ELSE TO_CHAR(COALESCE(DENTAL_SERVICE_INTERNAL_FIELDS.INCOME_AMOUNT, 0), 'FM9999999.99')
-                    END AS income_amount`),
-            db.raw("COALESCE(TO_CHAR(DENTAL_SERVICE_INTERNAL_FIELDS.DATE_ENROLLMENT, 'YYYY-MM-DD'), '') AS date_enrollment"),
-            "DENTAL_SERVICE_INTERNAL_FIELDS.POLICY_NUMBER as policy_number",
-            db.raw("COALESCE(TO_CHAR(DENTAL_SERVICE_INTERNAL_FIELDS.CREATED_AT, 'YYYY-MM-DD HH24:MI:SS'), '') AS created_at_if")
-        )
-        .where("DENTAL_SERVICE_SUBMISSIONS_DETAILS.STATUS", "<>", 4);
+            .leftJoin(
+                db.raw(`(
+                    SELECT DISTINCT DENTAL_SERVICE_ID,
+                        FIRST_VALUE(ID) OVER (PARTITION BY DENTAL_SERVICE_ID ORDER BY CREATED_AT ASC) AS ID,
+                        FIRST_VALUE(PROGRAM_YEAR) OVER (PARTITION BY DENTAL_SERVICE_ID ORDER BY CREATED_AT ASC) AS PROGRAM_YEAR,
+                        FIRST_VALUE(INCOME_AMOUNT) OVER (PARTITION BY DENTAL_SERVICE_ID ORDER BY CREATED_AT ASC) AS INCOME_AMOUNT,
+                        FIRST_VALUE(DATE_ENROLLMENT) OVER (PARTITION BY DENTAL_SERVICE_ID ORDER BY CREATED_AT ASC) AS DATE_ENROLLMENT,
+                        FIRST_VALUE(POLICY_NUMBER) OVER (PARTITION BY DENTAL_SERVICE_ID ORDER BY CREATED_AT ASC) AS POLICY_NUMBER,
+                        FIRST_VALUE(CREATED_AT) OVER (PARTITION BY DENTAL_SERVICE_ID ORDER BY CREATED_AT ASC) AS CREATED_AT
+                    FROM ${SCHEMA_DENTAL}.DENTAL_SERVICE_INTERNAL_FIELDS
+                ) DENTAL_SERVICE_INTERNAL_FIELDS`),
+                "DENTAL_SERVICE_SUBMISSIONS_DETAILS.ID",
+                "DENTAL_SERVICE_INTERNAL_FIELDS.DENTAL_SERVICE_ID"
+            )
+            .select(
+                "DENTAL_SERVICE_SUBMISSIONS_DETAILS.*",
+                "DENTAL_SERVICE_INTERNAL_FIELDS.PROGRAM_YEAR as program_year",
+                db.raw(`CASE
+                        WHEN COALESCE(DENTAL_SERVICE_INTERNAL_FIELDS.INCOME_AMOUNT, 0) = TRUNC(COALESCE(DENTAL_SERVICE_INTERNAL_FIELDS.INCOME_AMOUNT, 0))
+                        THEN TO_CHAR(COALESCE(DENTAL_SERVICE_INTERNAL_FIELDS.INCOME_AMOUNT, 0), 'FM9999999')
+                        ELSE TO_CHAR(COALESCE(DENTAL_SERVICE_INTERNAL_FIELDS.INCOME_AMOUNT, 0), 'FM9999999.99')
+                        END AS income_amount`),
+                db.raw("COALESCE(TO_CHAR(DENTAL_SERVICE_INTERNAL_FIELDS.DATE_ENROLLMENT, 'YYYY-MM-DD'), '') AS date_enrollment"),
+                "DENTAL_SERVICE_INTERNAL_FIELDS.POLICY_NUMBER as policy_number",
+                db.raw("COALESCE(TO_CHAR(DENTAL_SERVICE_INTERNAL_FIELDS.CREATED_AT, 'YYYY-MM-DD HH24:MI:SS'), '') AS created_at_if")
+            )
+            .where("DENTAL_SERVICE_SUBMISSIONS_DETAILS.STATUS", "<>", 4);
 
         if (requests.length > 0 && !isAllData) {
             query.whereIn("DENTAL_SERVICE_SUBMISSIONS_DETAILS.ID", requests);
@@ -525,8 +553,24 @@ dentalRouter.post("/export/", async (req: Request, res: Response) => {
             query.whereRaw(`TRUNC(TO_DATE(DENTAL_SERVICE_SUBMISSIONS_DETAILS.CREATED_AT, 'YYYY-MM-DD HH24:MI:SS')) BETWEEN TO_DATE(?, 'YYYY-MM-DD') AND TO_DATE(?, 'YYYY-MM-DD')`, [dateFrom, dateTo]);
         }
 
-        if (status_request && status_request.length > 0) {
+        if (status_request && status_request.length > 0 && !archivedFlag) {
             query.whereIn("DENTAL_SERVICE_SUBMISSIONS_DETAILS.STATUS", status_request);
+        }else if (archivedFlag) {
+            query.where("DENTAL_SERVICE_SUBMISSIONS_DETAILS.STATUS", 6);
+
+            if (searchQuery) {
+                const lowerSearch = searchQuery.toLowerCase();
+
+                query.where(function () {
+                    this.whereRaw(`LOWER(FIRST_NAME) LIKE ?`, [`%${lowerSearch}%`])
+                    .orWhereRaw(`LOWER(MIDDLE_NAME) LIKE ?`, [`%${lowerSearch}%`])
+                    .orWhereRaw(`LOWER(LAST_NAME) LIKE ?`, [`%${lowerSearch}%`])
+                    .orWhereRaw(`LOWER(HEALTH_CARD_NUMBER) LIKE ?`, [`%${lowerSearch}%`])
+                    .orWhereRaw(`LOWER(POSTAL_CODE) LIKE ?`, [`%${lowerSearch}%`])
+                    .orWhereRaw(`LOWER(EMAIL) LIKE ?`, [`%${lowerSearch}%`]);
+                });
+            }
+
         }
 
         if (isAllData) {
@@ -786,8 +830,9 @@ dentalRouter.get("/duplicates/details/:duplicate_id",[param("duplicate_id").isIn
                     .where('DENTAL_SERVICE_DEPENDENTS.DENTAL_SERVICE_ID', duplicateEntry.duplicated);
 
         dentalFiles = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_FILES`)
-            .where("DENTAL_SERVICE_ID", duplicateEntry.original).select().then((data:any) => {
-                return data.length > 0 ? data[0] : null;
+            .where("DENTAL_SERVICE_ID", duplicateEntry.original).select()
+            .then((rows: any[]) => {
+                return rows.length > 0 ? rows : null;
             });
 
         if(!_.isEmpty(dentalFiles)){
@@ -796,8 +841,9 @@ dentalRouter.get("/duplicates/details/:duplicate_id",[param("duplicate_id").isIn
         }
 
         dentalFilesDuplicated = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_FILES`)
-            .where("DENTAL_SERVICE_ID", duplicateEntry.duplicated).select().then((data:any) => {
-                return data.length > 0 ? data[0] : null;
+            .where("DENTAL_SERVICE_ID", duplicateEntry.duplicated).select()
+            .then((rows: any[]) => {
+                return rows.length > 0 ? rows : null;
             });
 
         if(!_.isEmpty(dentalFilesDuplicated)){
@@ -1420,7 +1466,6 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
                     !_.isNull(df.FILE_NAME) &&
                     !df.PROOF_INCOME
                 ) {
-                    console.log(df);
                     dentalFiles.DENTAL_SERVICE_ID = idSubmission;
                     dentalFiles.DESCRIPTION = df.DESCRIPTION;
                     dentalFiles.FILE_NAME = df.FILE_NAME;
@@ -1764,7 +1809,7 @@ async function getAllStatus(): Promise<any[]>{
     db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
 
     dentalServiceStatus = await db(`${SCHEMA_DENTAL}.DENTAL_STATUS`).select()
-    .whereNot('ID', 4).then((rows: any) => {
+    .whereNot('ID', 4).orderBy('ID', 'ASC').then((rows: any) => {
 
         let arrayResult = Array();
 

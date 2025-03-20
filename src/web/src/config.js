@@ -184,6 +184,14 @@ export const sections = [
                     "dental_view"
                 ]
             },
+            {
+                name: "Archived",
+                url: "/dentalArchived",
+                icon:  "fa-solid fa-box-archive",
+                permissions: [
+                    "dental_view"
+                ]
+            },
         ]
     },
 ];
