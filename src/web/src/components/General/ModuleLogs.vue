@@ -1,7 +1,7 @@
 <template>
     <div class="dental-service">
 		<v-row class="mb-5" no-gutters>
-			<span class="title-service">Modules Logs History</span>
+			<span class="title-service">Logs History</span>
 		</v-row>
 
 		<Notifications ref="notifier"></Notifications>
@@ -31,44 +31,32 @@
                 lg="3"
 				class="mr-5"
 			>
-				<v-text-field
-					label="Client Name"
-					variant="underlined"
-					v-model="searchInputQuery"
-				></v-text-field>
-				<span class="grey--text text-subtitle-2">Search By: Client First Name, Client Last Name</span>
+				<div class="d-flex align-center pr-2">
+					<v-text-field
+						label="Client Name"
+						variant="underlined"
+						v-model="searchInputQuery"
+						hint="Search By: Client First Name, Client Last Name"
+							persistent-hint
+					></v-text-field>
+					<v-tooltip top>
+						<template v-slot:activator="{ on, attrs }">
+							<v-icon v-bind="attrs" v-on="on" @click="clearSearchInput">mdi-close-circle</v-icon>
+						</template>
+						<span>Clear Name Filter</span>
+					</v-tooltip>
+					<v-btn
+						color="#F3A901"
+						class="white--text apply-btn mt-2"
+						id="searchInput-btn"
+						:disabled="!searchInputQuery.trim()"
+						@click="searchInputData"
+					>
+						Search
+					</v-btn>
+				</div>
 			</v-col>
-			<v-col
-				cols="12"
-                sm="12"
-                md="12"
-                lg="1"
-				class="text-center"
-			>
-				<v-tooltip top>
-					<template v-slot:activator="{ on, attrs }">
-						<v-icon v-bind="attrs" v-on="on" @click="clearSearchInput">mdi-close-circle</v-icon>
-					</template>
-					<span>Clear Name Filter</span>
-				</v-tooltip>
-			</v-col>
-			<v-col
-				cols="12"
-                sm="12"
-                md="12"
-                lg="1"
-				class="text-left"
-			>
-				<v-btn
-					color="#F3A901"
-					class="white--text apply-btn mt-2"
-					id="searchInput-btn"
-					:disabled="!searchInputQuery.trim()"
-					@click="searchInputData"
-				>
-					Search
-				</v-btn>
-			</v-col>
+
 			<v-col
 				cols="12"
                 sm="12"
@@ -89,7 +77,7 @@
 				cols="12"
                 sm="12"
                 md="12"
-                lg="1"
+                lg="2"
 			>
 				<v-menu
 					ref="menu"
@@ -122,7 +110,7 @@
 				cols="12"
                 sm="12"
                 md="12"
-                lg="1"
+                lg="2"
 			>
 				<v-menu
 					ref="menuEnd"
