@@ -203,7 +203,7 @@ export default {
             { text: "Major Medical Conditions", value: "major_medical_conditions", sortable: true},
             { text: "Do you identify with any of these groups and communities?", value: "do_you_identify_with_one_or_more_of_these_groups_and_communitie", sortable: true},
             { text: "Created", value: "created_at", sortable: true},
-            { text: "", value: "status_description", sortable: true},
+            { text: "Status", value: "status_description", sortable: true},
             { text: "", value: "showUrl", sortable: false},
         ],
         initialPage: 1,

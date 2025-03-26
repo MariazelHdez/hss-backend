@@ -19,6 +19,7 @@
                 sm="12"
                 md="12"
                 lg="3"
+				v-if="!archivedFlag"
 			>
 				<v-select
 					v-model="selectAction"
@@ -40,6 +41,7 @@
                 sm="12"
                 md="12"
                 lg="1"
+				v-if="!archivedFlag"
 			>
 				<v-btn
 					color="#F3A901"
@@ -81,7 +83,7 @@
 					color="#DC4405"
 					class="pull-right"
 					@click="editSubmission"
-					v-if="showExport"
+					v-if="showExport && !archivedFlag"
 				>
 					Edit submission
 					<v-icon
@@ -186,6 +188,7 @@ export default {
 		itemsDentalInternalFields: [],
 		itemsInternalFieldsYears: [],
 		itemsDentalComments: [],
+		archivedFlag: false,
 	}),
 	components: {
 		Notifications,
@@ -237,6 +240,7 @@ export default {
 				this.bulkActions = resp.data.dataStatus;
 				this.selectAction = resp.data.dataDentalService.status;
 				this.itemsInternalFieldsYears = resp.data.internalFieldsYears;
+				this.archivedFlag = resp.data.archivedFlag;
 			})
 			.catch((err) => console.error(err))
 			.finally(() => {

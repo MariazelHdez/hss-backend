@@ -328,6 +328,7 @@ export default {
 					sortBy: sortBy.length ? sortBy[0] : null,
 					sortOrder: sortBy.length ? (sortDesc[0] ? 'DESC' : 'ASC') : null,
 					initialFetch: this.initialFetch,
+					exportFlag: true,
 				}
 			})
 			.then((resp) => {
