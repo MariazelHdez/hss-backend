@@ -1832,3 +1832,30 @@ EXCEPTION
         RETURN NULL;
 END process_blob_value;
 /
+
+--------------------------------------------------------
+--  DDL for View SUBMISSIONS_LOGS
+--------------------------------------------------------
+CREATE OR REPLACE VIEW GENERAL.SUBMISSIONS_LOGS AS
+SELECT
+    al.ID,
+    al.ACTION_TYPE,
+    al.USER_ID,
+    al.TITLE,
+		TO_CHAR(al.ACTION_DATE, 'YYYY-MM-DD HH24:MI:SS') AS ACTION_DATE,
+    al.SUBMISSION_ID,
+    al.SCHEMA_NAME,
+    al.TABLE_NAME,
+    al.FIELD1,
+    at.DESCRIPTION AS ACTION_TYPE_DESCRIPTION,
+    ud.USER_NAME AS USER_NAME,
+		ud.USER_EMAIL AS USER_EMAIL,
+		ds.FIRST_NAME AS FIRST_NAME_CLIENT,
+		ds.LAST_NAME AS LAST_NAME_CLIENT
+FROM GENERAL.ACTION_LOGS al
+LEFT JOIN GENERAL.ACTION_TYPES at 
+       ON al.ACTION_TYPE = at.ID
+LEFT JOIN GENERAL.USER_DATA ud 
+       ON al.USER_ID = ud.ID
+LEFT JOIN DENTAL.DENTAL_SERVICE ds
+       ON al.SUBMISSION_ID = ds.ID

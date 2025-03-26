@@ -1,8 +1,13 @@
 import { AuditRepository } from './../repository/oracle/AuditRepository';
 import { groupBy } from '../utils/groupBy';
+import { helper } from "../utils";
 import express, { Request, Response } from "express";
 import { param } from "express-validator";
 import { SubmissionStatusRepository } from "../repository/oracle/SubmissionStatusRepository";
+import knex from "knex";
+import { DB_CONFIG_DENTAL, SCHEMA_DENTAL, SCHEMA_GENERAL, DB_CONFIG_GENERAL } from "../config";
+var _ = require('lodash');
+let db = knex(DB_CONFIG_GENERAL);
 var RateLimit = require('express-rate-limit');
 const submissionStatusRepo = new SubmissionStatusRepository();
 const auditRepo = new AuditRepository();
@@ -182,6 +187,145 @@ generalRouter.get("/submissions/gender/:action_id/:action_value", [
                 data: groupedId,
                 labels: labels
             });
+
+    } catch(e) {
+        console.log(e);  // debug if needed
+        res.send( {
+            status: 400,
+            message: 'Request could not be processed'
+        });
+    }
+});
+
+/**
+ * Obtain data to show in the index view
+ *
+ * @return json
+ */
+generalRouter.post("/logs", async (req: Request, res: Response) => {
+    try {
+        let moduleName = req.body.params.moduleName;
+        let userId = req.body.params.userName;
+        let dateFrom = req.body.params.dateFrom;
+        let dateTo = req.body.params.dateTo;
+        let searchQuery = req.body.params.searchQuery;
+
+        db = await helper.getOracleClient(db, DB_CONFIG_GENERAL);
+
+        let query = db(`${SCHEMA_GENERAL}.SUBMISSIONS_LOGS`)
+            .whereIn('SCHEMA_NAME', moduleName)
+            .orderBy('ID', 'ASC');
+
+        if(userId) {
+            query.where("USER_ID", userId);
+        }
+
+        if(dateFrom && dateTo) {
+            query.where(db.raw("TO_CHAR(TO_DATE(ACTION_DATE, 'YYYY-MM-DD HH24:MI:SS'), 'YYYY-MM-DD') >=  ? "+
+                                "AND TO_CHAR(TO_DATE(ACTION_DATE, 'YYYY-MM-DD HH24:MI:SS'), 'YYYY-MM-DD') <= ?",
+                [dateFrom, dateTo]));
+        }
+
+        if (searchQuery) {
+            const lowerSearch = searchQuery.trim().toLowerCase();
+
+            query.where(function () {
+                this.whereRaw(`LOWER(FIRST_NAME_CLIENT) LIKE ?`, [`%${lowerSearch}%`])
+                    .orWhereRaw(`LOWER(LAST_NAME_CLIENT) LIKE ?`, [`%${lowerSearch}%`]);
+            });
+        }
+
+        const queryUsers = await db(`${SCHEMA_GENERAL}.USER_DATA`)
+            .select({ text: 'USER_EMAIL', value: 'ID' })
+            .orderBy('ID', 'ASC');
+
+        const moduleLogs = await query;
+
+        res.send({data: moduleLogs, users: queryUsers});
+
+    } catch(e) {
+        console.log(e);  // debug if needed
+        res.send( {
+            status: 400,
+            message: 'Dashboard logs could not be processed'
+        });
+    }
+});
+
+/**
+ * Obtain data to show in export file
+ *
+ * @param {status} status of request
+ * @return json
+ */
+generalRouter.post("/export/", async (req: Request, res: Response) => {
+    try {
+        var requests = req.body.params.requests;
+        let moduleName = req.body.params.moduleName;
+        var dateFrom = req.body.params.dateFrom;
+        var dateTo = req.body.params.dateTo;
+        let searchQuery = req.body.params.searchQuery;
+        db = await helper.getOracleClient(db, DB_CONFIG_GENERAL);
+        let userId = req.body.params.userName;
+
+        let query = db(`${SCHEMA_GENERAL}.SUBMISSIONS_LOGS`)
+                    .select('SCHEMA_NAME',
+                            'TITLE',
+                            'ACTION_TYPE_DESCRIPTION',
+                            'SUBMISSION_ID',
+                            'FIRST_NAME_CLIENT',
+                            'LAST_NAME_CLIENT',
+                            'USER_NAME',
+                            'USER_EMAIL',
+                            'ACTION_DATE'
+                    )
+                    .whereIn('SCHEMA_NAME', moduleName);
+
+        if(requests.length > 0){
+            query.whereIn("ID", requests);
+        }
+
+        if(userId) {
+            query.where("USER_ID", userId);
+        }
+
+        if(dateFrom && dateTo) {
+            query.where(db.raw("TO_CHAR(TO_DATE(ACTION_DATE, 'YYYY-MM-DD HH24:MI:SS'), 'YYYY-MM-DD') >=  ? "+
+                                "AND TO_CHAR(TO_DATE(ACTION_DATE, 'YYYY-MM-DD HH24:MI:SS'), 'YYYY-MM-DD') <= ?",
+                [dateFrom, dateTo]));
+        }
+
+        if (searchQuery) {
+            const lowerSearch = searchQuery.trim().toLowerCase();
+
+            query.where(function () {
+                this.whereRaw(`LOWER(FIRST_NAME_CLIENT) LIKE ?`, [`%${lowerSearch}%`])
+                .orWhereRaw(`LOWER(LAST_NAME_CLIENT) LIKE ?`, [`%${lowerSearch}%`]);
+            });
+        }
+
+        query.orderBy('ID', 'ASC');
+
+        const moduleLogs = await query;
+
+        var bufferQuery = Object();
+        let stringQuery = query.toString();
+
+        // Verify the length of the serialized JSON
+        const maxLengthInBytes = 1 * (1024 * 1024); // 1MB to  bytes
+
+        if (Buffer.byteLength(stringQuery, 'utf8') > maxLengthInBytes) {
+            console.log('The object exceeds 1MB. It will be truncated.');
+            stringQuery = stringQuery.substring(0, maxLengthInBytes);
+        }
+
+        if(!_.isEmpty(query)) {
+            bufferQuery = Buffer.from(stringQuery);
+        }else{
+            bufferQuery = null;
+        }
+
+        res.json({ status: 200, dataLogs: moduleLogs});
 
     } catch(e) {
         console.log(e);  // debug if needed

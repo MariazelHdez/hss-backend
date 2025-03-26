@@ -35,6 +35,8 @@
 									<v-btn
 										color="#F3A901"
 										class="pull-right ma-2 white--text apply-btn"
+										:loading="loadingDownloadId === dentalFiles[i].id"
+										:disabled="loadingDownloadId === dentalFiles[i].id"
 										@click="downloadFile(dentalFiles[i].id)"
 									>
 										Download
@@ -50,6 +52,8 @@
 									<v-btn
 										color="#F3A901"
 										class="pull-right ma-2 white--text apply-btn"
+										:loading="loadingDownloadId === dentalFilesDuplicated[i].id"
+										:disabled="loadingDownloadId === dentalFilesDuplicated[i].id"
 										@click="downloadFile(dentalFilesDuplicated[i].id)"
 									>
 										Download
@@ -80,6 +84,8 @@
 									<v-btn
 										color="#F3A901"
 										class="pull-right ma-2 white--text apply-btn"
+										:loading="loadingDownloadId === file.id"
+										:disabled="loadingDownloadId === file.id"
 										v-show="showDownloadButton"
 										@click="downloadFile(file.id)"
 									>
@@ -117,7 +123,8 @@ export default {
 	data() {
 		return {
 			modelPanel: this.panelModel,
-			showDownloadButton: this.showDownload
+			showDownloadButton: this.showDownload,
+			loadingDownloadId: null,
 		};
 	},
 	watch: {
@@ -167,6 +174,8 @@ export default {
 			});
 		},
 		downloadFile (idDownload) {
+			this.loadingDownloadId = idDownload;
+
 			axios
 			.get(DENTAL_DOWNLOAD_FILE_URL+idDownload)
 			.then((resp) => {
@@ -174,7 +183,7 @@ export default {
 			})
 			.catch((err) => console.error(err))
 			.finally(() => {
-				this.loading = false;
+				this.loadingDownloadId = null;
 			});
 
 		}

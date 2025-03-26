@@ -20,6 +20,14 @@ export const sections = [
                     "dashboard_view"
                 ]
             },
+            {
+                name: "Module Logs",
+                url: "/moduleLogs",
+                icon: "fa-solid fa-book",
+                permissions: [
+                    "dental_view"
+                ]
+            },
         ]
     },
     {

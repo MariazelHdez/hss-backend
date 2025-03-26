@@ -290,6 +290,7 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
         var dentalComments = Object();
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
         let archivedFlag = false;
+        const userId = req.user?.db_user.user.id || null;
 
         dentalService = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_SUBMISSIONS_DETAILS`)
             .where('ID', dentalService_id)
@@ -455,6 +456,22 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
         }
 
         var dentalStatus = await getAllStatus();
+
+        var logFields = {
+            ACTION_TYPE: 8,
+            TITLE: "Dental submission details",
+            SCHEMA_NAME: SCHEMA_DENTAL,
+            TABLE_NAME: "DENTAL_SERVICE",
+            SUBMISSION_ID: dentalService_id,
+            ACTION_DATA: null,
+            USER_ID: userId
+        };
+
+        let loggedAction = await helper.insertLog(logFields);
+
+        if(!loggedAction){
+            console.log("Dental submission detail could not be logged");
+        }
 
         res.json({ status: 200,
             dataStatus: dentalStatus,
@@ -1051,6 +1068,8 @@ dentalRouter.get("/downloadFile/:dentalFile_id",[param("dentalFile_id").isInt().
         var fs = require("fs");
         var buffer;
         var dentalFile_id = Number(req.params.dentalFile_id);
+        const userId = req.user?.db_user.user.id || null;
+
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
 
         var dentalFiles = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_FILES`).where("ID", dentalFile_id).select().first();
@@ -1068,6 +1087,24 @@ dentalRouter.get("/downloadFile/:dentalFile_id",[param("dentalFile_id").isInt().
         fs.writeFileSync(pathFile, buffer);
 
         if(dentalFiles) {
+
+            var logFields = {
+                ACTION_TYPE: 9,
+                TITLE: safeName+"."+dentalFiles.file_type,
+                SCHEMA_NAME: SCHEMA_DENTAL,
+                TABLE_NAME: "DENTAL_SERVICE_FILES",
+                SUBMISSION_ID: dentalFiles.DENTAL_SERVICE_ID,
+                FIELD1: dentalFile_id,
+                ACTION_DATA: null,
+                USER_ID: userId
+            };
+
+            let loggedAction = await helper.insertLog(logFields);
+
+            if(!loggedAction){
+                console.log("Dental submission detail could not be logged");
+            }
+
             res.json({ fileName: safeName+"."+dentalFiles.file_type, fileType: dentalFiles.file_type, filePath: pathFile});
         }
 
@@ -1343,6 +1380,7 @@ dentalRouter.post("/storeInternalFields", async (req: Request, res: Response) =>
         let internalFieldsSaved = Object();
         let dateEnrollment = Object();
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
+        const userId = req.user?.db_user.user.id || null;
 
         if(!_.isEmpty(data.dateEnrollment)){
             data.dateEnrollment = new Date(data.dateEnrollment);
@@ -1364,6 +1402,21 @@ dentalRouter.post("/storeInternalFields", async (req: Request, res: Response) =>
 
             internalFieldsSaved = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_INTERNAL_FIELDS`).insert(internalFields).into(`${SCHEMA_DENTAL}.DENTAL_SERVICE_INTERNAL_FIELDS`);
 
+            let logFields = {
+                ACTION_TYPE: 12,
+                TITLE: "Create Internal Field for submission",
+                SCHEMA_NAME: SCHEMA_DENTAL,
+                TABLE_NAME: "DENTAL_SERVICE_INTERNAL_FIELDS",
+                SUBMISSION_ID: data.idSubmission,
+                USER_ID: userId
+            };
+
+            let loggedAction = await helper.insertLog(logFields);
+
+            if(!loggedAction){
+                console.log('The action could not be logged: '+logFields.TABLE_NAME+' '+logFields.TITLE);
+            }
+
         }else{
             internalFieldsSaved = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_INTERNAL_FIELDS`)
             .update({PROGRAM_YEAR: data.programYear,
@@ -1371,6 +1424,21 @@ dentalRouter.post("/storeInternalFields", async (req: Request, res: Response) =>
                     DATE_ENROLLMENT: dateEnrollment,
                     POLICY_NUMBER: data.policy})
             .whereIn("ID", data.id);
+
+            let logFields = {
+                ACTION_TYPE: 13,
+                TITLE: "Internal Field updated",
+                SCHEMA_NAME: SCHEMA_DENTAL,
+                TABLE_NAME: "DENTAL_SERVICE_INTERNAL_FIELDS",
+                SUBMISSION_ID: data.idSubmission,
+                USER_ID: userId
+            };
+
+            let loggedAction = await helper.insertLog(logFields);
+
+            if(!loggedAction){
+                console.log('The action could not be logged: '+logFields.TABLE_NAME+' '+logFields.TITLE);
+            }
         }
 
         if(!internalFieldsSaved){
@@ -1406,6 +1474,21 @@ dentalRouter.post("/storeComments", async (req: Request, res: Response) => {
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
 
         commentsSaved = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_COMMENTS`).insert(comments).into(`${SCHEMA_DENTAL}.DENTAL_SERVICE_COMMENTS`);
+
+        let logFields = {
+            ACTION_TYPE: 14,
+            TITLE: "Comment created for submission",
+            SCHEMA_NAME: SCHEMA_DENTAL,
+            TABLE_NAME: "DENTAL_SERVICE_COMMENTS",
+            SUBMISSION_ID: data.id,
+            USER_ID: data.user
+        };
+
+        let loggedAction = await helper.insertLog(logFields);
+
+        if(!loggedAction){
+            console.log('The action could not be logged: '+logFields.TABLE_NAME+' '+logFields.TITLE);
+        }
 
         if(!commentsSaved){
             res.json({ status:400, message: 'Request could not be processed' });
@@ -1445,6 +1528,7 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
         var updatedFields = req.body.params.dataUpdatedFields;
         var fieldList = Object();
         let responseSent = false;
+        const userId = req.user?.db_user.user.id || null;
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
         if(!_.isEmpty(data.DATE_OF_BIRTH)){
             let dob = new Date(data.DATE_OF_BIRTH);
@@ -1495,14 +1579,31 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
                             console.log('Request could not be processed (insert file)');
                         }
                         responseSent = true;
+                    }else{
+                        let logFieldsAttachment = {
+                            ACTION_TYPE: 10,
+                            TITLE: df.FILE_NAME+"."+df.FILE_TYPE,
+                            SCHEMA_NAME: SCHEMA_DENTAL,
+                            TABLE_NAME: "DENTAL_SERVICE_FILES",
+                            SUBMISSION_ID: idSubmission,
+                            ACTION_DATA: null,
+                            USER_ID: userId
+                        };
+
+                        let loggedAction = await helper.insertLog(logFieldsAttachment);
+
+                        if(!loggedAction){
+                            console.log("Dental submission detail could not be logged");
+                        }
                     }
+
                 }
                 else if (
                     !_.isNull(df.FILE_ID) &&
                     !_.isNil(df.FILE_DATA) &&
                     !df.PROOF_INCOME
                 ) {
-                    console.log(df);
+
                     dentalFiles.DENTAL_SERVICE_ID = idSubmission;
                     dentalFiles.DESCRIPTION = df.DESCRIPTION;
                     dentalFiles.FILE_NAME = df.FILE_NAME;
@@ -1545,6 +1646,21 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
         }
 
         if (deletedFiles.length) {
+
+            var deletedFilesData = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_FILES`)
+                .select('ID', 'FILE_DATA').whereIn('ID', deletedFiles)
+                .then((rows: any[]) => {
+                    const filesData: { [key: number]: any } = {};
+
+                    for (const row of rows) {
+                        filesData[row.id]["FILE_DATA"] = row.file_data;
+                        filesData[row.id]["FILE_NAME"] = row.file_name;
+                        filesData[row.id]["FILE_TYPE"] = row.file_type;
+                    }
+
+                    return filesData;
+                });
+
             var deleteFile = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_FILES`)
                 .whereIn("ID", deletedFiles)
                 .del();
@@ -1556,6 +1672,27 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
                     console.log('Error when deleting files');
                 }
                 responseSent = true;
+            }else{
+
+                for (const file of deletedFiles) {
+                    let logFieldsAttachment = {
+                        ACTION_TYPE: 11,
+                        TITLE: deletedFilesData[file]["FILE_NAME"]+"."+deletedFilesData[file]["FILE_TYPE"],
+                        SCHEMA_NAME: SCHEMA_DENTAL,
+                        TABLE_NAME: "DENTAL_SERVICE_FILES",
+                        SUBMISSION_ID: idSubmission,
+                        ACTION_DATA: deletedFilesData[file]["FILE_DATA"],
+                        USER_ID: userId,
+                        FIELD1: file
+                    };
+
+                    let loggedAction = await helper.insertLog(logFieldsAttachment);
+
+                    if(!loggedAction){
+                        console.log("Dental submission detail could not be logged");
+                    }
+
+                }
             }
         }
 
@@ -1726,7 +1863,7 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
             SCHEMA_NAME: SCHEMA_DENTAL,
             TABLE_NAME: "DENTAL_SERVICE",
             SUBMISSION_ID: idSubmission,
-            USER_ID: req.user?.db_user.user.id,
+            USER_ID: userId,
             ACTION_DATA: fieldList
         };
 
