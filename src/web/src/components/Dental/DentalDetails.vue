@@ -77,6 +77,17 @@
 				</v-btn>
 			</v-col>
 		</v-row>
+		<v-row no-gutters v-if="loading">
+			<v-col
+				cols="12"
+                sm="12"
+                md="12"
+                lg="12"
+				class="mt-5 text-center"
+			>
+				<v-progress-circular indeterminate :size="52" :width="5"></v-progress-circular>
+			</v-col>
+		</v-row>
 		<v-row no-gutters>
 			<v-col cols="12" id="dentalPanels">
 				<v-btn
@@ -210,6 +221,8 @@ export default {
 	},
 	methods: {
 		validateRecord() {
+			this.loading = true;
+
 			axios
 			.get(DENTAL_VALIDATE_URL+this.idSubmission)
 			.then((resp) => {
@@ -227,6 +240,8 @@ export default {
 			});
 		},
 		getDataFromApi() {
+			this.loading = true;
+
 			axios
 			.get(DENTAL_SHOW_URL+this.idSubmission)
 			.then((resp) => {
@@ -244,6 +259,7 @@ export default {
 			})
 			.catch((err) => console.error(err))
 			.finally(() => {
+				this.loading = false;
 			});
 		},
 		enterBulkAction(value) {
