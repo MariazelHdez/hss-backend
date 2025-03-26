@@ -372,9 +372,9 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
                     valueDependents["c_dob"] =  "N/A";
                 }
 
-                if(valueDependents["c_apply"] == "0"){
+                if(valueDependents["c_apply"] == "Yes"){
                     valueDependents["c_apply"] = "Yes, they are applying";
-                }else if(valueDependents["c_apply"] == "1"){
+                }else if(valueDependents["c_apply"] == "No"){
                     valueDependents["c_apply"] = "No, they alredy have coverage";
                 }
             });
@@ -604,7 +604,8 @@ dentalRouter.post("/export/", async (req: Request, res: Response) => {
 
         dentalServiceDependents.forEach(valueDependents => {
             valueDependents.c_dob = valueDependents.c_dob || "N/A";
-            valueDependents.c_apply = valueDependents.c_apply === "0" ? "Yes, they are applying" : "No, they already have coverage";
+            console.log(valueDependents.c_apply);
+            valueDependents.c_apply = valueDependents.c_apply === "Yes" ? "Yes, they are applying" : "No, they already have coverage";
         });
 
         var bufferQuery = Object();
@@ -873,9 +874,9 @@ dentalRouter.get("/duplicates/details/:duplicate_id",[param("duplicate_id").isIn
                     valueOriginal["c_dob"] =  "N/A";
                 }
 
-                if(valueOriginal["c_apply"] == "0"){
+                if(valueOriginal["c_apply"] == "Yes"){
                     valueOriginal["c_apply"] = "Yes, they are applying";
-                }else if(valueOriginal["c_apply"] == "1"){
+                }else if(valueOriginal["c_apply"] == "No"){
                     valueOriginal["c_apply"] = "No, they alredy have coverage";
                 }
             });
@@ -886,9 +887,9 @@ dentalRouter.get("/duplicates/details/:duplicate_id",[param("duplicate_id").isIn
                     valueDuplicated["c_dob"] =  "N/A";
                 }
 
-                if(valueDuplicated["c_apply"] == "0"){
+                if(valueDuplicated["c_apply"] == "Yes"){
                     valueDuplicated["c_apply"] = "Yes, they are applying";
-                }else if(valueDuplicated["c_apply"] == "1"){
+                }else if(valueDuplicated["c_apply"] == "No"){
                     valueDuplicated["c_apply"] = "No, they alredy have coverage";
                 }
             });
@@ -1581,9 +1582,8 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
                 responseSent = true;
             }
         }
-        console.log(newDependents)
 
-        if(newDependents.length > 0 && !_.isEmpty(newDependents[0].C_FIRSTNAME) && !_.isEmpty(newDependents[0].C_HEALTHCARE)  ){
+        if(newDependents.length > 0 && ( !_.isEmpty(newDependents[0].C_FIRSTNAME) || !_.isEmpty(newDependents[0].C_HEALTHCARE))  ){
             _.forEach(newDependents, function(value: any) {
                 if(!_.isEmpty(value.C_DOB)){
                     let dob = new Date(value.C_DOB);
