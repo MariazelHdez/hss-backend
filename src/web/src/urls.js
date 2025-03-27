@@ -41,6 +41,8 @@ export const SUBMISSION_GENDER_URL = `${SUBMISSION_URL}/gender`;
 export const AUDIT_URL = `${GENERAL_URL}/audit`;
 export const AUDIT_DATA_URL = `${AUDIT_URL}/data`;
 export const AUDIT_TIMELINE_URL = `${AUDIT_URL}/timeline`;
+export const GENERAL_LOGS =  `${GENERAL_URL}/logs`;
+export const GENERAL_LOGS_EXPORT = `${GENERAL_URL}/export`;
 
 export const MIDWIFERY_URL = `${config.apiBaseUrl}/api/midwifery`;
 export const MIDWIFERY_SHOW_URL = `${MIDWIFERY_URL}/show/`;
@@ -71,4 +73,3 @@ export const DENTAL_DUPLICATES_DETAILS = `${DENTAL_DUPLICATES}/details/`;
 export const DENTAL_DUPLICATES_PRIMARY = `${DENTAL_DUPLICATES}/primary/`;
 export const DENTAL_VALIDATE_WARNING_URL = `${DENTAL_DUPLICATES}/validateWarning/`;
 export const DENTAL_UPDATE_URL = `${DENTAL_URL}/update`;
-

@@ -14,15 +14,17 @@
                 lg="4"
 			>
 				<div class="d-flex align-center pr-2">
+
 					<v-text-field
 						label="Keyword"
 						variant="underlined"
 						prepend-inner-icon="mdi-magnify"
 						v-model="searchInputQuery"
-						@keyup.enter="searchInputData"
 						hint="Search By: First Name, Middle Name, Last Name, Postal Code, Healthcare Card Number, or Email"
 						persistent-hint
+						@keyup.enter="searchInputData"
 					></v-text-field>
+
 					<v-tooltip top>
 						<template v-slot:activator="{ on, attrs }">
 							<v-icon v-bind="attrs" v-on="on" @click="clearSearchInput">mdi-close-circle</v-icon>
@@ -38,25 +40,9 @@
 					>
 						Search
 					</v-btn>
-				</div>
+				</div>	
 			</v-col>
 
-			<v-col
-				cols="12"
-                sm="12"
-                md="12"
-                lg="2"
-			>
-				<v-select
-					v-model="statusSelected"
-					:items="statusFilter"
-					label="Select Status"
-					multiple
-					persistent-hint
-					@change="changeStatusSelect"
-				></v-select>
-
-			</v-col>
 			<v-col
 				cols="12"
                 sm="12"
@@ -153,46 +139,28 @@
 					<span>Clear Filters</span>
 				</v-tooltip>
 			</v-col>
-		</v-row>
-
-		<v-row  class="mb-5 d-flex align-baseline" no-gutters>
 
 			<v-col
-				cols="12"
-                sm="12"
-                md="12"
-                lg="2"
-			>
-				<v-select
-					:items="bulkActions"
-					v-model="bulkSelected"
-					solo
-					label="Bulk Actions"
-					append-icon="mdi-chevron-down"
-					prepend-inner-icon="mdi-layers-triple"
-					color="grey lighten-2"
-					item-color="grey lighten-2"
-					@change="enterBulkAction"
-					id="bulk-accion-select"
-				>
-				</v-select>
-			</v-col>
-
-			<v-col
-				cols="12"
-                sm="12"
-                md="12"
-                lg="1"
-				class="text-center"
+				cols="10"
+				sm="10"
+				md="10"
+				lg="2"
 			>
 				<v-btn
+					:loading="loadingExport"
+					:disabled="loadingExport"
 					color="#F3A901"
-					class="white--text apply-btn mt-2"
-					id="apply-btn"
-					:disabled="applyDisabled"
-					@click="submitBulk"
+					class="ma-2 white--text apply-btn"
+					@click="exportFile()"
+					id="export-btn"
 				>
-					Apply
+					Export
+					<v-icon
+						right
+						dark
+					>
+						mdi-cloud-download
+					</v-icon>
 				</v-btn>
 			</v-col>
 		</v-row>
@@ -205,15 +173,9 @@
 			:items="items"
 			:headers="headers"
 			:options.sync="options"
-			:loading="loadingTable"
+			:loading="loading"
 			:search="search"
 			@input="enterSelect"
-
-			:server-items-length="totalItems"
-			@update:options="handlePagination"
-			:footer-props="{
-                'items-per-page-options': itemsPerPage
-            }"
 		>
 			<template v-slot:[`item.showurl`]="{ item }">
 				<v-icon @click="showDetails(item.showurl)">mdi-eye</v-icon>
@@ -224,33 +186,34 @@
 
 <script>
 	const axios = require("axios");
-	import { DENTAL_URL } from "../../urls.js";
+	import { DENTAL_URL, DENTAL_EXPORT_FILE_URL } from "../../urls.js";
+	import { utils, writeFileXLSX } from "xlsx";
 	import Notifications from "../Notifications.vue";
 
 	export default {
 	name: "DentalServiceIndex",
 	beforeRouteLeave(to, from, next) {
+
 		sessionStorage.setItem(
-			"dentalFilters",
+			"dentalArchiveFilters",
 			JSON.stringify({
-				searchInputQuery: this.searchInputQuery?.trim() || "",
-				date: this.date || null,
-				dateEnd: this.dateEnd || null,
-				dateYear: this.dateYear || null,
-				statusSelected: Array.isArray(this.statusSelected) ? this.statusSelected : [],
-				page: this.options.page,
-				itemsPerPage: this.options.itemsPerPage
+				searchInputQuery: this.searchInputQuery,
+				date: this.date,
+				dateEnd: this.dateEnd,
+				dateYear: this.dateYear,
+				selectedYear: this.selectedYear,
+				statusSelected: this.statusSelected,
 			})
 		);
+
 		next();
 	},
 	props: ['type'],
 	data: () => ({
-		loadingTable: false,
+		loading: false,
 		bulkSelected: [],
 		items: [],
-		fetchedItems: [],
-		statusSelected: [1],
+		statusSelected: [],
 		date: null,
 		selectedYear: null,
 		dateYear: null,
@@ -265,10 +228,7 @@
 		itemsSelected: [],
 		search: "",
 		applyDisabled: true,
-		options: {
-			page: 1,
-			itemsPerPage: 10
-		},
+		options: {},
 		flagAlert: false,
 		statusChangeMessage: "Status changed successfully.",
 		nonexistentMessage: "The submission you are consulting is closed or non existant, please choose a valid submission.",
@@ -303,22 +263,24 @@
 		{ text: "Status", value: "status_description", sortable: true },
 		{ text: "", value: "showurl", sortable: false },
 		],
+		page: 1,
+		pageCount: 0,
+		iteamsPerPage: 10,
 		alignments: "center",
-		totalItems: 0,
-		initialPage: 1,
-		initialItemsPerPage: 10,
-		itemsPerPage: [10, 15, 50, 100, -1],
-		allItems: 0,
-		isAllData: false,
-		initialFetch: 1,
 		searchInputDisabled: true,
 		searchInputQuery: '',
-		filtersRestored: false
+		archivedFlag: true,
 	}),
 	components: {
 		Notifications
 	},
 	watch: {
+		options: {
+			handler() {
+				this.getDataFromApi();
+			},
+			deep: true,
+		},
 		search: {
 			handler() {
 				this.getDataFromApi();
@@ -327,30 +289,28 @@
 		}
 	},
 	mounted() {
-		const savedFilters = sessionStorage.getItem("dentalFilters");
-		if (savedFilters) {
-			try {
-				const parsed = JSON.parse(savedFilters);
 
-				this.searchInputQuery = parsed.searchInputQuery?.trim() || "";
-				this.date = parsed.date || null;
-				this.dateEnd = parsed.dateEnd || null;
-				this.dateYear = parsed.dateYear || null;
-				this.selectedYear = parsed.dateYear || null;
-				this.statusSelected = Array.isArray(parsed.statusSelected) ? parsed.statusSelected : [];
-				this.options.page = parsed.page || 1;
-				this.options.itemsPerPage = parsed.itemsPerPage || 10;
-				this.filtersRestored = true;
-				this.$nextTick(() => {
-					this.getDataFromApi();
-				});
-			} catch (error) {
-				console.error("Error loading saved filters:", error);
-				this.getDataFromApi();
-			}
-		} else {
-			this.getDataFromApi();
+		const savedFilters = sessionStorage.getItem("dentalArchiveFilters");
+		if (savedFilters) {
+			const parsed = JSON.parse(savedFilters);
+
+			this.searchInputQuery = parsed.searchInputQuery || "";
+			this.date = parsed.date || null;
+			this.dateEnd = parsed.dateEnd || null;
+			this.dateYear = parsed.dateYear || null;
+			this.selectedYear = parsed.dateYear || null;
+			this.statusSelected = parsed.statusSelected || null;
 		}
+
+		if (typeof this.$route.query.type !== undefined){
+			if(this.$route.query.type == "status"){
+				this.$refs.notifier.showSuccess(this.statusChangeMessage);
+			}else if(this.$route.query.type == "nonexistent"){
+				this.$refs.notifier.showError(this.nonexistentMessage);
+			}
+		}
+
+		this.getDataFromApi();
 	},
 	methods: {
 		handleYear() {
@@ -361,28 +321,20 @@
 				this.date = null;
 				this.dateEnd = null;
 				this.selected = [];
-				this.options.page = this.initialPage;
-				this.options.itemsPerPage = this.initialItemsPerPage;
 				this.getDataFromApi();
 			}
 		},
 		changeStatusSelect(){
 			this.selected = [];
-			this.options.page = this.initialPage;
-			this.options.itemsPerPage = this.initialItemsPerPage;
 			this.getDataFromApi();
 		},
 		updateDate(){
 			if(this.date !== null && this.dateEnd !== null){
 				this.selected = [];
-				this.options.page = this.initialPage;
-				this.options.itemsPerPage = this.initialItemsPerPage;
 				this.getDataFromApi();
 			}
 		},
 		removeFilters() {
-			this.options.page = this.initialPage;
-			this.options.itemsPerPage = this.initialItemsPerPage;
 			return this.date || this.dateEnd || this.statusSelected || this.dateYear || this.selectedYear;
 		},
 		resetInputs() {
@@ -396,14 +348,10 @@
 			this.selected = [];
 			this.searchInputQuery = "";
 			this.searchInputDisabled = true;
-			this.initialFetch = 1;
 			this.getDataFromApi();
 		},
 		getDataFromApi() {
-			this.loadingTable = true;
-			this.items = [];
-			const { page, itemsPerPage, sortBy, sortDesc } = this.options;
-
+			this.loading = true;
 			axios
 			.post(DENTAL_URL, {
 				params: {
@@ -412,85 +360,42 @@
 					dateYear: this.dateYear,
 					status: this.statusSelected,
 					searchQuery: this.searchInputQuery,
-					page: page,
-					pageSize: itemsPerPage,
-					sortBy: sortBy.length ? sortBy[0] : null,
-					sortOrder: sortBy.length ? (sortDesc[0] ? 'DESC' : 'ASC') : null,
-					initialFetch: this.initialFetch,
+					archivedFlag: this.archivedFlag,
 				}
 			})
 			.then((resp) => {
-				this.fetchedItems = resp.data.data;
+				this.items = resp.data.data;
 				this.bulkActions = resp.data.dataStatus;
-				this.statusFilter = resp.data.dataStatus.filter(
-										(element) => element.value !== 4 && element.value !== 6
-									);
-				this.loadingTable = false;
+				this.statusFilter = resp.data.dataStatus.filter((element) => element.value != 4);
+				this.loading = false;
 				this.dateDisabled = false;
-				this.totalItems = resp.data.total;
-				this.allItems = resp.data.all;
-
-				if (this.initialFetch === 1) {
-                    const { page, itemsPerPage } = this.options;
-                    const startIndex = (page - 1) * itemsPerPage;
-                    const endIndex = startIndex + itemsPerPage;
-                    
-                    this.items = this.fetchedItems.slice(startIndex, endIndex);
-
 
 				sessionStorage.setItem(
-					"dentalFilters",
+					"dentalArchiveFilters",
 					JSON.stringify({
-						searchInputQuery: this.searchInputQuery,
-						date: this.date,
-						dateEnd: this.dateEnd,
-						dateYear: this.dateYear,
-						statusSelected: this.statusSelected,
+					searchInputQuery: this.searchInputQuery,
+					date: this.date,
+					dateEnd: this.dateEnd,
+					dateYear: this.dateYear,
+					statusSelected: this.statusSelected,
 					})
 				);
-					this.initialFetch = 0;
-                } else {
-                    this.items = this.fetchedItems;
-                }
-
 			})
 			.catch((err) => console.error(err))
 			.finally(() => {
-				this.loadingTable = false;
+				this.loading = false;
 			});
 		},
-		handlePagination() {
-			if (!this.filtersRestored) {
-				return;
-			}
-
-            const { page, itemsPerPage, sortBy, sortDesc } = this.options;
-            const startIndex = (page - 1) * itemsPerPage;
-            const endIndex = startIndex + itemsPerPage;
-            if (sortBy.length || sortDesc.length) {
-                this.getDataFromApi();
-            } else {
-                if (this.fetchedItems.length >= endIndex) {
-                    this.items = this.fetchedItems.slice(startIndex, endIndex);
-                } else {
-                    this.getDataFromApi();
-                }
-            }
-        },
 		showDetails(route) {
-			sessionStorage.setItem(
-				"dentalFilters",
-				JSON.stringify({
-					searchInputQuery: this.searchInputQuery?.trim() || "",
-					date: this.date || null,
-					dateEnd: this.dateEnd || null,
-					dateYear: this.dateYear || null,
-					statusSelected: Array.isArray(this.statusSelected) ? this.statusSelected : [],
-				})
-			);
-
 			this.$router.push({
-				path: route
+					path: route,
+					query: {
+						searchInputQuery: this.searchInputQuery,
+						date: this.date,
+						dateEnd: this.dateEnd,
+						dateYear: this.selectedYear,
+						statusSelected: JSON.stringify(this.statusSelected),
+					},
 			});
 		},
 		enterSelect() {
@@ -528,21 +433,6 @@
 				}
 			}
 		},
-		sortItems(items, sortBy, sortDesc) {
-            if (sortBy.length) {
-                let sorted = items.sort((a, b) => {
-                    const sortKey = sortBy[0];
-                    const sortOrder = sortDesc[0] ? -1 : 1;
-                    if (a[sortKey] < b[sortKey]) return -1 * sortOrder;
-                    if (a[sortKey] > b[sortKey]) return 1 * sortOrder;
-                    return 0;
-                });
-
-                return sorted;
-            }else{
-                return items;
-            }
-        },
 		searchInputData() {
 			this.searchInputQuery = this.searchInputQuery.trim();
 			if(this.searchInputQuery !== null && this.searchInputQuery !== ""){
@@ -553,6 +443,98 @@
 			this.searchInputQuery = "";
 			this.searchInputDisabled = true;
 			this.getDataFromApi();
+		},
+		exportFile () {
+			var idArray = [];
+			this.selected.forEach((e) => {
+				idArray.push(e.id);
+			});
+
+			axios
+			.post(DENTAL_EXPORT_FILE_URL, {
+				params: {
+					requests: idArray,
+					status: this.selectedStatus,
+					dateFrom: this.date,
+					dateTo: this.dateEnd,
+					dateYear: this.dateYear,
+					searchQuery: this.searchInputQuery,
+					archivedFlag: this.archivedFlag
+				}
+			}).then((resp) => {
+				const ws = utils.json_to_sheet(resp.data.dataDental);
+				const wb = utils.book_new();
+				utils.book_append_sheet(wb, ws, "Dental Service Requests");
+
+				utils.sheet_add_aoa(
+				ws,
+				[
+					[
+					"FIRST NAME",
+					"MIDDLE NAME",
+					"LAST NAME",
+					"DATE OF BIRTH",
+					"HEALTH CARD NUMBER",
+					"MAILING ADDRESS",
+					"CITY OR TOWN",
+					"POSTAL CODE",
+					"PHONE",
+					"EMAIL",
+					"OTHER COVERAGE",
+					"ELIGIBLE PHARMACARE",
+					"EMAIL INSTEAD",
+					"HAVE CHILDREN",
+					"ASK DEMOGRAPHIC",
+					"IDENTIFY GROUPS",
+					"GENDER",
+					"EDUCATION",
+					"OFTEN BRUSH",
+					"STATE TEETH",
+					"OFTEN FLOSS",
+					"STATE GUMS",
+					"LAST SAW DENTIST",
+					"REASON FOR DENTIST",
+					"BUY SUPPLIES",
+					"PAY FOR VISIT",
+					"BARRIERS",
+					"PROBLEMS",
+					"SERVICES NEEDED",
+					"CREATED AT",
+					"PROOF OF INCOME ATTACHMENT",
+					"PROGRAM YEAR",
+					"INCOME AMOUNT",
+					"DATE OF ENROLLMENT",
+					"POLICY NUMBER",
+					"INTERNAL FIELD CREATED AT"
+					],
+				],
+				{ origin: "A1" }
+				);
+				const ws2 = utils.json_to_sheet(resp.data.dataDependents);
+				utils.book_append_sheet(wb, ws2, "Dental Service Dependents");
+				utils.sheet_add_aoa(
+				ws2,
+				[
+					[
+					"APPLICANT NAME",
+					"FIRST NAME",
+					"LAST NAME",
+					"DATE OF BIRTH",
+					"HEALTHCARE",
+					"APPLY",
+					],
+				],
+				{ origin: "A1" }
+				);
+
+				writeFileXLSX(wb, "DentalService_ArchivedRequests.xlsx");
+
+				this.loading = false;
+			})
+			.catch((err) => console.error(err))
+			.finally(() => {
+				this.loading = false;
+			});
 		},
 	},
 	};

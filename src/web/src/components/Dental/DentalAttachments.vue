@@ -24,68 +24,50 @@
 								</th>
 							</tr>
                         </thead>
-                        <tbody v-if="dentalServiceDuplicated" >
-							<tr>
+                        <tbody v-if="dentalServiceDuplicated">
+							<tr v-for="i in fileIndexes" :key="i">
 								<td>Proof of income</td>
-								<td v-if="dentalFiles">
-									<v-icon
-										right
-										light
-										color="black"
-										class="h-100"
-									>
-									mdi-file
-									</v-icon>
-									{{dentalFiles.file_fullName}}
+
+								<td v-if="dentalFiles && dentalFiles[i]">
+									<v-icon right light color="black" class="h-100">mdi-file</v-icon>
+									{{ dentalFiles[i].file_name + '.' + dentalFiles[i].file_type }}
 
 									<v-btn
 										color="#F3A901"
 										class="pull-right ma-2 white--text apply-btn"
-										@click="downloadFile(dentalFiles.id)"
+										:loading="loadingDownloadId === dentalFiles[i].id"
+										:disabled="loadingDownloadId === dentalFiles[i].id"
+										@click="downloadFile(dentalFiles[i].id)"
 									>
-										Download &nbsp;
-										<v-icon
-											right
-											dark
-										>
-										mdi-cloud-download
-										</v-icon>
+										Download
+										<v-icon right dark>mdi-cloud-download</v-icon>
 									</v-btn>
 								</td>
-								<td v-else>
-								</td>
-								<td  v-if="dentalFilesDuplicated">
-									<v-icon
-										right
-										light
-										color="black"
-										class="h-100"
-									>
-									mdi-file
-									</v-icon>
-									{{dentalFilesDuplicated.file_fullName}}
+								<td v-else></td>
+
+								<td v-if="dentalFilesDuplicated && dentalFilesDuplicated[i]">
+									<v-icon right light color="black" class="h-100">mdi-file</v-icon>
+									{{ dentalFilesDuplicated[i].file_name + '.' + dentalFilesDuplicated[i].file_type }}
 
 									<v-btn
 										color="#F3A901"
 										class="pull-right ma-2 white--text apply-btn"
-										@click="downloadFile(dentalFilesDuplicated.id)"
+										:loading="loadingDownloadId === dentalFilesDuplicated[i].id"
+										:disabled="loadingDownloadId === dentalFilesDuplicated[i].id"
+										@click="downloadFile(dentalFilesDuplicated[i].id)"
 									>
-										Download &nbsp;
-										<v-icon
-											right
-											dark
-										>
-										mdi-cloud-download
-										</v-icon>
+										Download
+										<v-icon right dark>mdi-cloud-download</v-icon>
 									</v-btn>
 								</td>
-								<td v-else>
-								</td>
+								<td v-else></td>
 							</tr>
-
-                        </tbody>
+						</tbody>
 						<tbody v-else>
-							<tr v-if="dentalFiles">
+							<tr
+								v-for="(file) in dentalFiles || []"
+								:key="file.id"
+							>
 								<td>Proof of income</td>
 								<td>
 									<v-icon
@@ -96,14 +78,16 @@
 									>
 									mdi-file
 									</v-icon>
-									{{dentalFiles.file_fullName}}
+									{{file.file_fullName}}
 								</td>
 								<td>
 									<v-btn
 										color="#F3A901"
 										class="pull-right ma-2 white--text apply-btn"
+										:loading="loadingDownloadId === file.id"
+										:disabled="loadingDownloadId === file.id"
 										v-show="showDownloadButton"
-										@click="downloadFile(dentalFiles.id)"
+										@click="downloadFile(file.id)"
 									>
 										Download &nbsp;
 										<v-icon
@@ -139,7 +123,8 @@ export default {
 	data() {
 		return {
 			modelPanel: this.panelModel,
-			showDownloadButton: this.showDownload
+			showDownloadButton: this.showDownload,
+			loadingDownloadId: null,
 		};
 	},
 	watch: {
@@ -148,6 +133,15 @@ export default {
 		},
 		showDownload(newValue) {
 			this.showDownloadButton = newValue;
+		}
+	},
+	computed: {
+		fileIndexes() {
+			const originalLen = (this.dentalFiles || []).length;
+			const duplicatedLen = (this.dentalFilesDuplicated || []).length;
+			const max = Math.max(originalLen, duplicatedLen);
+
+			return Array.from({ length: max }, (_, i) => i);
 		}
 	},
 	methods: {
@@ -180,6 +174,8 @@ export default {
 			});
 		},
 		downloadFile (idDownload) {
+			this.loadingDownloadId = idDownload;
+
 			axios
 			.get(DENTAL_DOWNLOAD_FILE_URL+idDownload)
 			.then((resp) => {
@@ -187,7 +183,7 @@ export default {
 			})
 			.catch((err) => console.error(err))
 			.finally(() => {
-				this.loading = false;
+				this.loadingDownloadId = null;
 			});
 
 		}

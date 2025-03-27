@@ -19,6 +19,7 @@
                 sm="12"
                 md="12"
                 lg="3"
+				v-if="!archivedFlag"
 			>
 				<v-select
 					v-model="selectAction"
@@ -40,6 +41,7 @@
                 sm="12"
                 md="12"
                 lg="1"
+				v-if="!archivedFlag"
 			>
 				<v-btn
 					color="#F3A901"
@@ -75,13 +77,24 @@
 				</v-btn>
 			</v-col>
 		</v-row>
+		<v-row no-gutters v-if="loading">
+			<v-col
+				cols="12"
+                sm="12"
+                md="12"
+                lg="12"
+				class="mt-5 text-center"
+			>
+				<v-progress-circular indeterminate :size="52" :width="5"></v-progress-circular>
+			</v-col>
+		</v-row>
 		<v-row no-gutters>
 			<v-col cols="12" id="dentalPanels">
 				<v-btn
 					color="#DC4405"
 					class="pull-right"
 					@click="editSubmission"
-					v-if="showExport"
+					v-if="showExport && !archivedFlag"
 				>
 					Edit submission
 					<v-icon
@@ -186,6 +199,7 @@ export default {
 		itemsDentalInternalFields: [],
 		itemsInternalFieldsYears: [],
 		itemsDentalComments: [],
+		archivedFlag: false,
 	}),
 	components: {
 		Notifications,
@@ -207,6 +221,8 @@ export default {
 	},
 	methods: {
 		validateRecord() {
+			this.loading = true;
+
 			axios
 			.get(DENTAL_VALIDATE_URL+this.idSubmission)
 			.then((resp) => {
@@ -224,6 +240,8 @@ export default {
 			});
 		},
 		getDataFromApi() {
+			this.loading = true;
+
 			axios
 			.get(DENTAL_SHOW_URL+this.idSubmission)
 			.then((resp) => {
@@ -237,9 +255,11 @@ export default {
 				this.bulkActions = resp.data.dataStatus;
 				this.selectAction = resp.data.dataDentalService.status;
 				this.itemsInternalFieldsYears = resp.data.internalFieldsYears;
+				this.archivedFlag = resp.data.archivedFlag;
 			})
 			.catch((err) => console.error(err))
 			.finally(() => {
+				this.loading = false;
 			});
 		},
 		enterBulkAction(value) {

@@ -20,6 +20,14 @@ export const sections = [
                     "dashboard_view"
                 ]
             },
+            {
+                name: "Logs History",
+                url: "/moduleLogs",
+                icon: "fa-solid fa-book",
+                permissions: [
+                    "dental_logs"
+                ]
+            },
         ]
     },
     {
@@ -180,6 +188,14 @@ export const sections = [
                 name: "Export",
                 url: "/dentalExport",
                 icon:  "fa-solid fa-file-export",
+                permissions: [
+                    "dental_view"
+                ]
+            },
+            {
+                name: "Archived",
+                url: "/dentalArchived",
+                icon:  "fa-solid fa-box-archive",
                 permissions: [
                     "dental_view"
                 ]

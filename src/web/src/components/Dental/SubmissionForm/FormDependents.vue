@@ -86,7 +86,7 @@
 						></v-select>
 					</v-col>
 					<v-col cols="1">
-						<v-btn @click="addRow" class="mr-1" color="primary" x-small><v-icon>mdi-plus</v-icon></v-btn>
+						<v-btn @click="addRow(true)" class="mr-1" color="primary" x-small><v-icon>mdi-plus</v-icon></v-btn>
 						<v-btn @click="deleteRow(index)" color="error" x-small><v-icon>mdi-delete</v-icon></v-btn>
 					</v-col>
 				</v-row>
@@ -140,7 +140,7 @@ export default {
 			this.newDependentsCounter = Object.keys(this.dentalDependents).length;
 
 			if(Object.keys(this.dentalDependents).length === 0){
-				this.addRow();
+				this.addRow(false);
 			}else{
 				this.listDependents = this.dentalDependents;
 			}
@@ -163,7 +163,7 @@ export default {
 		}
 	},
 	methods: {
-		addRow() {
+		addRow(registerField) {
 			this.listDependents.push({
 				c_apply: null,
 				c_dob: null,
@@ -175,7 +175,7 @@ export default {
 				id: this.newDependentsCounter
 			});
 
-			if (!this.updatedFields.includes("HAVE_CHILDREN")) {
+			if (!this.updatedFields.includes("HAVE_CHILDREN") && registerField == true) {
 				this.updatedFields.push("HAVE_CHILDREN");
 				this.$emit('addField', "HAVE_CHILDREN");
 			}

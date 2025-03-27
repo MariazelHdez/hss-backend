@@ -105,8 +105,20 @@ dentalRouter.post("/", async (req: Request, res: Response) => {
         var dateTo = req.body.params.dateTo;
         var dateYear = req.body.params.dateYear;
         let status_request = req.body.params.status;
+        let searchQuery = req.body.params.searchQuery;
+        const archivedFlag = req.body.params?.archivedFlag ?? false;
+        const exportFlag = req.body.params?.exportFlag ?? false;
+
+
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
         let query = db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_SUBMISSIONS`)
+
+        if (!archivedFlag && !exportFlag) {
+            query.whereNotIn("STATUS", [4, 6]);
+        } else if (exportFlag) {
+            query.whereNotIn("STATUS", [4]);
+        }
+       
 
         const countAllQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
 
@@ -120,8 +132,24 @@ dentalRouter.post("/", async (req: Request, res: Response) => {
             query.where(db.raw("TO_CHAR(?, 'YYYY-MM-DD') BETWEEN ? AND ?", [createdAt, dateFrom, dateTo]));
         }
 
-        if (status_request && status_request.length > 0) {
+        if (status_request && status_request.length > 0 && !archivedFlag) {
             query.whereIn("STATUS", status_request);
+        }else if (archivedFlag) {
+            query.where("STATUS", 6);
+        }
+
+        if (searchQuery) {
+            const sanitizedSearch = searchQuery.trim().replace(/[^a-zA-Z0-9\s@.-]/g, "");
+            const lowerSearch = sanitizedSearch.toLowerCase();
+            
+            query.where(function () {
+                this.whereRaw(`LOWER(FIRST_NAME) LIKE ?`, [`%${lowerSearch}%`])
+                .orWhereRaw(`LOWER(MIDDLE_NAME) LIKE ?`, [`%${lowerSearch}%`])
+                .orWhereRaw(`LOWER(LAST_NAME) LIKE ?`, [`%${lowerSearch}%`])
+                .orWhereRaw(`LOWER(HEALTH_CARD_NUMBER) LIKE ?`, [`%${lowerSearch}%`])
+                .orWhereRaw(`LOWER(POSTAL_CODE) LIKE ?`, [`%${lowerSearch}%`])
+                .orWhereRaw(`LOWER(EMAIL) LIKE ?`, [`%${lowerSearch}%`]);
+            });
         }
 
         const countQuery = query.clone();
@@ -261,6 +289,8 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
         var dentalInternalFields = Object();
         var dentalComments = Object();
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
+        let archivedFlag = false;
+        const userId = req.user?.db_user.user.id || null;
 
         dentalService = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_SUBMISSIONS_DETAILS`)
             .where('ID', dentalService_id)
@@ -284,9 +314,7 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
                     'FILE_NAME',
                     'FILE_TYPE',
                     'FILE_SIZE'
-            ).then((data:any) => {
-                return data[0];
-            });
+            );
 
         dentalInternalFields = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_INTERNAL_FIELDS`)
                                 .select('ID',
@@ -318,7 +346,9 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
         dentalService.flagFile = true;
 
         if(!_.isEmpty(dentalFiles)){
-            dentalFiles.file_fullName = dentalFiles.file_name+"."+dentalFiles.file_type;
+            dentalFiles.forEach(function (value: any) {
+                value.file_fullName = value.file_name+"."+value.file_type;
+            });
         }else{
             dentalService.flagFile = false;
         }
@@ -343,9 +373,9 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
                     valueDependents["c_dob"] =  "N/A";
                 }
 
-                if(valueDependents["c_apply"] == "0"){
+                if(valueDependents["c_apply"] == "Yes"){
                     valueDependents["c_apply"] = "Yes, they are applying";
-                }else if(valueDependents["c_apply"] == "1"){
+                }else if(valueDependents["c_apply"] == "No"){
                     valueDependents["c_apply"] = "No, they alredy have coverage";
                 }
             });
@@ -389,6 +419,10 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
 
         var statusDental =  await db(`${SCHEMA_DENTAL}.DENTAL_STATUS`).where("DESCRIPTION", "Closed").select().first();
 
+        if(dentalService.status == 6){
+            archivedFlag = true;
+        }
+
         let today = new Date();
         let dd = String(today.getDate()).padStart(2, '0');
         let mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -423,6 +457,22 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
 
         var dentalStatus = await getAllStatus();
 
+        var logFields = {
+            ACTION_TYPE: 8,
+            TITLE: "Dental submission details",
+            SCHEMA_NAME: SCHEMA_DENTAL,
+            TABLE_NAME: "DENTAL_SERVICE",
+            SUBMISSION_ID: dentalService_id,
+            ACTION_DATA: null,
+            USER_ID: userId
+        };
+
+        let loggedAction = await helper.insertLog(logFields);
+
+        if(!loggedAction){
+            console.log("Dental submission detail could not be logged");
+        }
+
         res.json({ status: 200,
             dataStatus: dentalStatus,
             dataDentalService: dentalService,
@@ -444,7 +494,8 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
             dataPaymentMethods: dentalPaymentMethods,
             dataDentalBarriers: dentalBarriers,
             dataDentalProblems: dentalProblems,
-            dataDentalNeedServices: dentalNeedServices
+            dataDentalNeedServices: dentalNeedServices,
+            archivedFlag: archivedFlag
         });
     } catch(e) {
         console.log(e);  // debug if needed
@@ -465,8 +516,11 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
 dentalRouter.post("/export/", async (req: Request, res: Response) => {
     try {
         const { requests, status: status_request, dateFrom, dateTo, dateYear, isAllData, offset, limit } = req.body.params;
+        let searchQuery = req.body.params.searchQuery;
+        const archivedFlag = req.body.params?.archivedFlag ?? false;
         const idSubmissions: number[] = [];
         let dentalInternalFields = Object();
+
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
         let userId = req.user?.db_user.user.id || null;
 
@@ -511,8 +565,24 @@ dentalRouter.post("/export/", async (req: Request, res: Response) => {
             query.whereRaw(`TRUNC(TO_DATE(DENTAL_SERVICE_SUBMISSIONS_DETAILS.CREATED_AT, 'YYYY-MM-DD HH24:MI:SS')) BETWEEN TO_DATE(?, 'YYYY-MM-DD') AND TO_DATE(?, 'YYYY-MM-DD')`, [dateFrom, dateTo]);
         }
 
-        if (status_request && status_request.length > 0) {
+        if (status_request && status_request.length > 0 && !archivedFlag) {
             query.whereIn("DENTAL_SERVICE_SUBMISSIONS_DETAILS.STATUS", status_request);
+        }else if (archivedFlag) {
+            query.where("DENTAL_SERVICE_SUBMISSIONS_DETAILS.STATUS", 6);
+
+            if (searchQuery) {
+                const lowerSearch = searchQuery.toLowerCase();
+
+                query.where(function () {
+                    this.whereRaw(`LOWER(FIRST_NAME) LIKE ?`, [`%${lowerSearch}%`])
+                    .orWhereRaw(`LOWER(MIDDLE_NAME) LIKE ?`, [`%${lowerSearch}%`])
+                    .orWhereRaw(`LOWER(LAST_NAME) LIKE ?`, [`%${lowerSearch}%`])
+                    .orWhereRaw(`LOWER(HEALTH_CARD_NUMBER) LIKE ?`, [`%${lowerSearch}%`])
+                    .orWhereRaw(`LOWER(POSTAL_CODE) LIKE ?`, [`%${lowerSearch}%`])
+                    .orWhereRaw(`LOWER(EMAIL) LIKE ?`, [`%${lowerSearch}%`]);
+                });
+            }
+
         }
 
         if (isAllData) {
@@ -551,7 +621,8 @@ dentalRouter.post("/export/", async (req: Request, res: Response) => {
 
         dentalServiceDependents.forEach(valueDependents => {
             valueDependents.c_dob = valueDependents.c_dob || "N/A";
-            valueDependents.c_apply = valueDependents.c_apply === "0" ? "Yes, they are applying" : "No, they already have coverage";
+            console.log(valueDependents.c_apply);
+            valueDependents.c_apply = valueDependents.c_apply === "Yes" ? "Yes, they are applying" : "No, they already have coverage";
         });
 
         var bufferQuery = Object();
@@ -772,8 +843,9 @@ dentalRouter.get("/duplicates/details/:duplicate_id",[param("duplicate_id").isIn
                     .where('DENTAL_SERVICE_DEPENDENTS.DENTAL_SERVICE_ID', duplicateEntry.duplicated);
 
         dentalFiles = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_FILES`)
-            .where("DENTAL_SERVICE_ID", duplicateEntry.original).select().then((data:any) => {
-                return data.length > 0 ? data[0] : null;
+            .where("DENTAL_SERVICE_ID", duplicateEntry.original).select()
+            .then((rows: any[]) => {
+                return rows.length > 0 ? rows : null;
             });
 
         if(!_.isEmpty(dentalFiles)){
@@ -782,8 +854,9 @@ dentalRouter.get("/duplicates/details/:duplicate_id",[param("duplicate_id").isIn
         }
 
         dentalFilesDuplicated = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_FILES`)
-            .where("DENTAL_SERVICE_ID", duplicateEntry.duplicated).select().then((data:any) => {
-                return data.length > 0 ? data[0] : null;
+            .where("DENTAL_SERVICE_ID", duplicateEntry.duplicated).select()
+            .then((rows: any[]) => {
+                return rows.length > 0 ? rows : null;
             });
 
         if(!_.isEmpty(dentalFilesDuplicated)){
@@ -818,9 +891,9 @@ dentalRouter.get("/duplicates/details/:duplicate_id",[param("duplicate_id").isIn
                     valueOriginal["c_dob"] =  "N/A";
                 }
 
-                if(valueOriginal["c_apply"] == "0"){
+                if(valueOriginal["c_apply"] == "Yes"){
                     valueOriginal["c_apply"] = "Yes, they are applying";
-                }else if(valueOriginal["c_apply"] == "1"){
+                }else if(valueOriginal["c_apply"] == "No"){
                     valueOriginal["c_apply"] = "No, they alredy have coverage";
                 }
             });
@@ -831,9 +904,9 @@ dentalRouter.get("/duplicates/details/:duplicate_id",[param("duplicate_id").isIn
                     valueDuplicated["c_dob"] =  "N/A";
                 }
 
-                if(valueDuplicated["c_apply"] == "0"){
+                if(valueDuplicated["c_apply"] == "Yes"){
                     valueDuplicated["c_apply"] = "Yes, they are applying";
-                }else if(valueDuplicated["c_apply"] == "1"){
+                }else if(valueDuplicated["c_apply"] == "No"){
                     valueDuplicated["c_apply"] = "No, they alredy have coverage";
                 }
             });
@@ -995,6 +1068,8 @@ dentalRouter.get("/downloadFile/:dentalFile_id",[param("dentalFile_id").isInt().
         var fs = require("fs");
         var buffer;
         var dentalFile_id = Number(req.params.dentalFile_id);
+        const userId = req.user?.db_user.user.id || null;
+
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
 
         var dentalFiles = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_FILES`).where("ID", dentalFile_id).select().first();
@@ -1012,6 +1087,24 @@ dentalRouter.get("/downloadFile/:dentalFile_id",[param("dentalFile_id").isInt().
         fs.writeFileSync(pathFile, buffer);
 
         if(dentalFiles) {
+
+            var logFields = {
+                ACTION_TYPE: 9,
+                TITLE: safeName+"."+dentalFiles.file_type,
+                SCHEMA_NAME: SCHEMA_DENTAL,
+                TABLE_NAME: "DENTAL_SERVICE_FILES",
+                SUBMISSION_ID: dentalFiles.DENTAL_SERVICE_ID,
+                FIELD1: dentalFile_id,
+                ACTION_DATA: null,
+                USER_ID: userId
+            };
+
+            let loggedAction = await helper.insertLog(logFields);
+
+            if(!loggedAction){
+                console.log("Dental submission detail could not be logged");
+            }
+
             res.json({ fileName: safeName+"."+dentalFiles.file_type, fileType: dentalFiles.file_type, filePath: pathFile});
         }
 
@@ -1287,6 +1380,7 @@ dentalRouter.post("/storeInternalFields", async (req: Request, res: Response) =>
         let internalFieldsSaved = Object();
         let dateEnrollment = Object();
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
+        const userId = req.user?.db_user.user.id || null;
 
         if(!_.isEmpty(data.dateEnrollment)){
             data.dateEnrollment = new Date(data.dateEnrollment);
@@ -1308,6 +1402,21 @@ dentalRouter.post("/storeInternalFields", async (req: Request, res: Response) =>
 
             internalFieldsSaved = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_INTERNAL_FIELDS`).insert(internalFields).into(`${SCHEMA_DENTAL}.DENTAL_SERVICE_INTERNAL_FIELDS`);
 
+            let logFields = {
+                ACTION_TYPE: 12,
+                TITLE: "Create Internal Field for submission",
+                SCHEMA_NAME: SCHEMA_DENTAL,
+                TABLE_NAME: "DENTAL_SERVICE_INTERNAL_FIELDS",
+                SUBMISSION_ID: data.idSubmission,
+                USER_ID: userId
+            };
+
+            let loggedAction = await helper.insertLog(logFields);
+
+            if(!loggedAction){
+                console.log('The action could not be logged: '+logFields.TABLE_NAME+' '+logFields.TITLE);
+            }
+
         }else{
             internalFieldsSaved = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_INTERNAL_FIELDS`)
             .update({PROGRAM_YEAR: data.programYear,
@@ -1315,6 +1424,21 @@ dentalRouter.post("/storeInternalFields", async (req: Request, res: Response) =>
                     DATE_ENROLLMENT: dateEnrollment,
                     POLICY_NUMBER: data.policy})
             .whereIn("ID", data.id);
+
+            let logFields = {
+                ACTION_TYPE: 13,
+                TITLE: "Internal Field updated",
+                SCHEMA_NAME: SCHEMA_DENTAL,
+                TABLE_NAME: "DENTAL_SERVICE_INTERNAL_FIELDS",
+                SUBMISSION_ID: data.idSubmission,
+                USER_ID: userId
+            };
+
+            let loggedAction = await helper.insertLog(logFields);
+
+            if(!loggedAction){
+                console.log('The action could not be logged: '+logFields.TABLE_NAME+' '+logFields.TITLE);
+            }
         }
 
         if(!internalFieldsSaved){
@@ -1351,6 +1475,21 @@ dentalRouter.post("/storeComments", async (req: Request, res: Response) => {
 
         commentsSaved = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_COMMENTS`).insert(comments).into(`${SCHEMA_DENTAL}.DENTAL_SERVICE_COMMENTS`);
 
+        let logFields = {
+            ACTION_TYPE: 14,
+            TITLE: "Comment created for submission",
+            SCHEMA_NAME: SCHEMA_DENTAL,
+            TABLE_NAME: "DENTAL_SERVICE_COMMENTS",
+            SUBMISSION_ID: data.id,
+            USER_ID: data.user
+        };
+
+        let loggedAction = await helper.insertLog(logFields);
+
+        if(!loggedAction){
+            console.log('The action could not be logged: '+logFields.TABLE_NAME+' '+logFields.TITLE);
+        }
+
         if(!commentsSaved){
             res.json({ status:400, message: 'Request could not be processed' });
         }
@@ -1378,7 +1517,8 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
 
         var idSubmission = req.body.params.idSubmission;
         var data = req.body.params.data;
-        var dataFile = req.body.params.dataFile;
+        var dataFiles = req.body.params.dataFiles.attachmentFiles;
+        var deletedFiles = req.body.params.dataFiles.deletedFiles;
         var dentalFiles = Object();
         var currentDependents = Object();
         var newDependents = req.body.params.dataDependents.newDependents;
@@ -1388,6 +1528,7 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
         var updatedFields = req.body.params.dataUpdatedFields;
         var fieldList = Object();
         let responseSent = false;
+        const userId = req.user?.db_user.user.id || null;
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
         if(!_.isEmpty(data.DATE_OF_BIRTH)){
             let dob = new Date(data.DATE_OF_BIRTH);
@@ -1397,78 +1538,163 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
             data.DATE_OF_BIRTH = null;
         }
 
-        if(_.isNull(dataFile.FILE_ID) && !_.isNull(dataFile.FILE_NAME) && !dataFile.PROOF_INCOME){
+        if (Array.isArray(dataFiles) && dataFiles.length > 0) {
+            for (const df of dataFiles) {
 
-            dentalFiles.DENTAL_SERVICE_ID = idSubmission;
-            dentalFiles.DESCRIPTION = dataFile.DESCRIPTION;
-            dentalFiles.FILE_NAME = dataFile.FILE_NAME;
-            dentalFiles.FILE_TYPE = dataFile.FILE_TYPE;
-            dentalFiles.FILE_SIZE = dataFile.FILE_SIZE ? dataFile.FILE_SIZE.toString() : dataFile.FILE_SIZE;
+                if (
+                    _.isNull(df.FILE_ID) &&
+                    !_.isNull(df.FILE_NAME) &&
+                    !df.PROOF_INCOME
+                ) {
+                    dentalFiles.DENTAL_SERVICE_ID = idSubmission;
+                    dentalFiles.DESCRIPTION = df.DESCRIPTION;
+                    dentalFiles.FILE_NAME = df.FILE_NAME;
+                    dentalFiles.FILE_TYPE = df.FILE_TYPE;
+                    dentalFiles.FILE_SIZE = df.FILE_SIZE ? df.FILE_SIZE.toString() : df.FILE_SIZE;
 
-            const blobData = Buffer.from(dataFile.FILE_DATA , 'base64');
+                    const blobData = Buffer.from(df.FILE_DATA, 'base64');
 
-            // Execute the stored procedure using Knex
-            const filesSaved = await db.raw(`
-                BEGIN
-                DENTAL.INSERT_FILES(?,?,?,?,?,?);
-                END;
-            `, [parseInt(idSubmission), dataFile.DESCRIPTION, dataFile.FILE_NAME, dataFile.FILE_TYPE,  dataFile.FILE_SIZE, blobData]
-            ).catch(error => {
-                console.error("Error when trying to insert a document:", error);
-            });
+                    const filesSaved = await db.raw(`
+                            BEGIN
+                            DENTAL.INSERT_FILES(?,?,?,?,?,?);
+                            END;
+                            `,
+                            [
+                                parseInt(idSubmission),
+                                df.DESCRIPTION,
+                                df.FILE_NAME,
+                                df.FILE_TYPE,
+                                df.FILE_SIZE,
+                                blobData
+                            ]
+                        )
+                        .catch((error) => {
+                            console.error("Error inserting a document:", error);
+                        });
 
-            if(!filesSaved){
-                if (!responseSent) {
-                    res.json({ status:400, message: 'Request could not be processed' });
-                }else{
-                    console.log( 'Request could not be processed');
+                    if(!filesSaved) {
+                        if (!responseSent) {
+                            res.json({ status:400, message: 'Request could not be processed' });
+                        } else {
+                            console.log('Request could not be processed (insert file)');
+                        }
+                        responseSent = true;
+                    }else{
+                        let logFieldsAttachment = {
+                            ACTION_TYPE: 10,
+                            TITLE: df.FILE_NAME+"."+df.FILE_TYPE,
+                            SCHEMA_NAME: SCHEMA_DENTAL,
+                            TABLE_NAME: "DENTAL_SERVICE_FILES",
+                            SUBMISSION_ID: idSubmission,
+                            ACTION_DATA: null,
+                            USER_ID: userId
+                        };
+
+                        let loggedAction = await helper.insertLog(logFieldsAttachment);
+
+                        if(!loggedAction){
+                            console.log("Dental submission detail could not be logged");
+                        }
+                    }
+
                 }
-                responseSent = true;
+                else if (
+                    !_.isNull(df.FILE_ID) &&
+                    !_.isNil(df.FILE_DATA) &&
+                    !df.PROOF_INCOME
+                ) {
+                    dentalFiles.DENTAL_SERVICE_ID = idSubmission;
+                    dentalFiles.DESCRIPTION = df.DESCRIPTION;
+                    dentalFiles.FILE_NAME = df.FILE_NAME;
+                    dentalFiles.FILE_TYPE = df.FILE_TYPE;
+                    dentalFiles.FILE_SIZE = df.FILE_SIZE ? df.FILE_SIZE.toString() : df.FILE_SIZE;
+                    dentalFiles.FILE_DATA = df.FILE_DATA;
 
-                
+                    const blobData = Buffer.from(dentalFiles.FILE_DATA, 'base64');
+
+                    const updateFile = await db
+                        .raw(
+                            `
+                            BEGIN
+                            DENTAL.UPDATE_FILES(?,?,?,?,?,?);
+                            END;
+                            `,
+                            [
+                                parseInt(idSubmission),
+                                dentalFiles.DESCRIPTION,
+                                dentalFiles.FILE_NAME,
+                                dentalFiles.FILE_TYPE,
+                                dentalFiles.FILE_SIZE,
+                                blobData
+                            ]
+                        )
+                        .catch((error) => {
+                            console.error("Error updating a document:", error);
+                        });
+
+                    if(!updateFile){
+                        if (!responseSent) {
+                            res.json({ status:400, message: 'Request could not be processed' });
+                        } else {
+                            console.log('Error when updating file');
+                        }
+                        responseSent = true;
+                    }
+                }
             }
+        }
+        if (deletedFiles.length  > 0) {
 
-        }else if(!_.isNull(dataFile.FILE_ID) && dataFile.PROOF_INCOME){
+            var deletedFilesData = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_FILES`)
+                .select('ID', 'FILE_DATA', 'FILE_TYPE', 'FILE_NAME').whereIn('ID', deletedFiles)
+                .then((rows: any[]) => {
 
-            var deleteFile = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_FILES`).where("ID", dataFile.FILE_ID).del();
+                    const filesData: { [key: number]: any } = {};
+                    for (const row of rows) {
+                        if (!filesData[row.id]) {
+                            filesData[row.id] = {}; // Initialize the object first
+                        }
+                        filesData[row.id]["FILE_DATA"] = row.file_data;
+                        filesData[row.id]["FILE_NAME"] = row.file_name;
+                        filesData[row.id]["FILE_TYPE"] = row.file_type;
+                    }
+
+
+                    return filesData;
+                });
+
+            var deleteFile = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_FILES`)
+                .whereIn("ID", deletedFiles)
+                .del();
             if(!deleteFile){
                 if (!responseSent) {
                     res.json({ status:400, message: 'Request could not be processed' });
-                }else{
-                    console.log( 'Error when delete file');
+                } else {
+                    console.log('Error when deleting files');
                 }
                 responseSent = true;
-            }
+            }else{
 
-        }else if(!_.isNull(dataFile.FILE_ID) && !_.isNull(dataFile.FILE_DATA) && !dataFile.PROOF_INCOME){
+                for (const file of deletedFiles) {
+                    let logFieldsAttachment = {
+                        ACTION_TYPE: 11,
+                        TITLE: deletedFilesData[file]["FILE_NAME"]+"."+deletedFilesData[file]["FILE_TYPE"],
+                        SCHEMA_NAME: SCHEMA_DENTAL,
+                        TABLE_NAME: "DENTAL_SERVICE_FILES",
+                        SUBMISSION_ID: idSubmission,
+                        ACTION_DATA: deletedFilesData[file]["FILE_DATA"],
+                        USER_ID: userId,
+                        FIELD1: file
+                    };
 
-            dentalFiles.DENTAL_SERVICE_ID = idSubmission;
-            dentalFiles.DESCRIPTION = dataFile.DESCRIPTION;
-            dentalFiles.FILE_NAME = dataFile.FILE_NAME;
-            dentalFiles.FILE_TYPE = dataFile.FILE_TYPE;
-            dentalFiles.FILE_SIZE = dataFile.FILE_SIZE ?  dataFile.FILE_SIZE.toString() : dataFile.FILE_SIZE ;
-            dentalFiles.FILE_DATA = dataFile.FILE_DATA;
-            
-            const blobData = Buffer.from(dentalFiles.FILE_DATA, 'base64');
+                    let loggedAction = await helper.insertLog(logFieldsAttachment);
 
-            const updateFile = await db.raw(`
-                BEGIN
-                DENTAL.UPDATE_FILES(?,?,?,?,?,?);
-                END;
-            `, [parseInt(idSubmission), dentalFiles.DESCRIPTION, dentalFiles.FILE_NAME, dentalFiles.FILE_TYPE, dentalFiles.FILE_SIZE, blobData]
-            ).catch(error => {
-                console.error("Error when trying to insert a document:", error);
-            });
+                    if(!loggedAction){
+                        console.log("Dental submission detail could not be logged");
+                    }
 
-            if(!updateFile){
-                if (!responseSent) {
-                    res.json({ status:400, message: 'Request could not be processed' });
-                }else{
-                    console.log( 'Error when update file');
                 }
-                responseSent = true;                
             }
-
         }
 
         currentDependents = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_DEPENDENTS`)
@@ -1491,12 +1717,11 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
                 }else{
                     console.log( 'Error when delete dependents');
                 }
-                responseSent = true;         
+                responseSent = true;
             }
         }
-        console.log(newDependents)
 
-        if(newDependents.length > 0 && !_.isEmpty(newDependents[0].C_FIRSTNAME) && !_.isEmpty(newDependents[0].C_HEALTHCARE)  ){
+        if(newDependents.length > 0 && ( !_.isEmpty(newDependents[0].C_FIRSTNAME) || !_.isEmpty(newDependents[0].C_HEALTHCARE))  ){
             _.forEach(newDependents, function(value: any) {
                 if(!_.isEmpty(value.C_DOB)){
                     let dob = new Date(value.C_DOB);
@@ -1517,7 +1742,7 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
                 }else{
                     console.log( 'Error when create dependents');
                 }
-                responseSent = true;                   
+                responseSent = true;
             }
 
         }
@@ -1639,7 +1864,7 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
             SCHEMA_NAME: SCHEMA_DENTAL,
             TABLE_NAME: "DENTAL_SERVICE",
             SUBMISSION_ID: idSubmission,
-            USER_ID: req.user?.db_user.user.id,
+            USER_ID: userId,
             ACTION_DATA: fieldList
         };
 
@@ -1717,7 +1942,7 @@ async function getAllStatus(): Promise<any[]>{
     db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
 
     dentalServiceStatus = await db(`${SCHEMA_DENTAL}.DENTAL_STATUS`).select()
-    .whereNot('ID', 4).then((rows: any) => {
+    .whereNot('ID', 4).orderBy('ID', 'ASC').then((rows: any) => {
 
         let arrayResult = Array();
 
