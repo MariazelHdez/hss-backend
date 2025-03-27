@@ -28,28 +28,35 @@
 				cols="12"
                 sm="12"
                 md="12"
-                lg="3"
+                lg="4"
 				class="mr-5"
 			>
 				<div class="d-flex align-center pr-2">
 					<v-text-field
-						label="Client Name"
+						label="Client First Name"
+						class="mr-5"
 						variant="underlined"
-						v-model="searchInputQuery"
-						hint="Search By: Client First Name, Client Last Name"
-							persistent-hint
+						v-model="inputFirstName"
+						persistent-hint
+					></v-text-field>
+					<v-text-field
+						label="Client Last Name"
+						class="mr-5"
+						variant="underlined"
+						v-model="inputLastName"
+						persistent-hint
 					></v-text-field>
 					<v-tooltip top>
 						<template v-slot:activator="{ on, attrs }">
 							<v-icon v-bind="attrs" v-on="on" @click="clearSearchInput">mdi-close-circle</v-icon>
 						</template>
-						<span>Clear Name Filter</span>
+						<span>Clear Name Filters</span>
 					</v-tooltip>
 					<v-btn
 						color="#F3A901"
 						class="white--text apply-btn mt-2"
 						id="searchInput-btn"
-						:disabled="!searchInputQuery.trim()"
+						:disabled="(!inputFirstName.trim() && !inputLastName.trim())"
 						@click="searchInputData"
 					>
 						Search
@@ -188,9 +195,14 @@
 			@input="enterSelect"
 			@toggle-select-all="selectAll"
 		>
-			<!--template v-slot:[`item.showurl`]="{ item }">
-				<v-icon @click="showDetails(item.showurl)">mdi-eye</v-icon>
-			</template-->
+			<template v-slot:[`item.submission_id`]="{ item }">
+				<a
+					:href="`/dental/show/${item.submission_id}`"
+					target="_blank"
+				>
+					<b>{{ item.submission_id }}</b>
+				</a>
+			</template>
 		</v-data-table>
     </div>
 </template>
@@ -201,6 +213,14 @@
 	import { utils } from "xlsx";
 	import Notifications from "../Notifications.vue";
 
+	const now = new Date();
+	const year = now.getFullYear();
+	const month = String(now.getMonth() + 1).padStart(2, "0");
+	const firstDay = `${year}-${month}-01`;
+	const lastDate = new Date(year, now.getMonth() + 1, 0).getDate();
+	const lastDay = `${year}-${month}-${String(lastDate).padStart(2, "0")}`;
+
+
 	export default {
 	name: "logsIndex",
 	props: ['type'],
@@ -210,11 +230,11 @@
 		items: [],
 		moduleSelected: ["DENTAL", "GENERAL"],
 		userSelected: null,
-		date: null,
+		date: firstDay,
+		dateEnd: lastDay,
 		selectedYear: null,
 		dateYear: null,
 		menu: false,
-		dateEnd: null,
 		modulesFilter: ['DENTAL', 'MIDWIFERY', 'HIPMA', 'CONSTELLATION'],
 		usersFilter: [],
 		menuEnd: false,
@@ -280,7 +300,8 @@
 		iteamsPerPage: 10,
 		alignments: "center",
 		searchInputDisabled: true,
-		searchInputQuery: '',
+		inputFirstName: '',
+		inputLastName: '',
 		loadingExport: false,
 		disabledExport: false,
 	}),
@@ -304,17 +325,6 @@
 	mounted() {
 	},
 	methods: {
-		handleYear() {
-			const year = parseInt(this.selectedYear);
-			if (Number.isInteger(year) && year >= 1950 && year <= 2050) {
-				this.dateYear = year;
-				this.dateDisabled = true;
-				this.date = null;
-				this.dateEnd = null;
-				this.selected = [];
-				this.getDataFromApi();
-			}
-		},
 		changeModuleSelect(){
 			this.getDataFromApi();
 		},
@@ -331,10 +341,11 @@
 			return this.date || this.dateEnd || this.userSelected;
 		},
 		resetInputs() {
-			this.date = null;
-			this.dateEnd = null;
+			this.date = firstDay;
+			this.dateEnd = lastDay;
 			this.userSelected = null;
-			this.searchInputQuery = "";
+			this.inputFirstName = "";
+			this.inputLastName = "";
 			this.searchInputDisabled = true;
 			this.getDataFromApi();
 		},
@@ -348,7 +359,8 @@
 					userName: this.userSelected,
 					dateFrom: this.date,
 					dateTo: this.dateEnd,
-					searchQuery: this.searchInputQuery,
+					firstName: this.inputFirstName,
+					lastName: this.inputLastName,
 				}
 			})
 			.then((resp) => {
@@ -365,7 +377,8 @@
 			this.$router.push({
 				path: route,
 				query: {
-					searchQuery: this.searchInputQuery,
+					firstName: this.inputFirstName,
+					lastName: this.inputLastName,
 					date: this.date,
 					dateEnd: this.dateEnd,
 					dateYear: this.selectedYear,
@@ -386,12 +399,16 @@
 			: this.items
 		},
 		searchInputData() {
-			if(this.searchInputQuery !== null && this.searchInputQuery !== ""){
+			const firstName = this.inputFirstName?.trim() || "";
+			const lastName = this.inputLastName?.trim() || "";
+
+			if (firstName !== "" || lastName !== "") {
 				this.getDataFromApi();
 			}
 		},
 		clearSearchInput(){
-			this.searchInputQuery = "";
+			this.inputFirstName = "";
+			this.inputLastName = "";
 			this.searchInputDisabled = true;
 			this.getDataFromApi();
 		},
@@ -405,14 +422,15 @@
 
 			axios
 				.post(GENERAL_LOGS_EXPORT, {
-				params: {
-					requests: idArray,
-					moduleName: this.moduleSelected,
-					userName: this.userSelected,
-					dateFrom: this.date,
-					dateTo: this.dateEnd,
-					searchQuery: this.searchInputQuery,
-				}
+					params: {
+						requests: idArray,
+						moduleName: this.moduleSelected,
+						userName: this.userSelected,
+						dateFrom: this.date,
+						dateTo: this.dateEnd,
+						firstName: this.inputFirstName,
+						lastName: this.inputLastName,
+					}
 				})
 				.then((resp) => {
 					if (resp.data.dataLogs && resp.data.dataLogs.length > 0) {

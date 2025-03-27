@@ -208,7 +208,8 @@ generalRouter.post("/logs", async (req: Request, res: Response) => {
         let userId = req.body.params.userName;
         let dateFrom = req.body.params.dateFrom;
         let dateTo = req.body.params.dateTo;
-        let searchQuery = req.body.params.searchQuery;
+        let firstName = req.body.params.firstName;
+        let lastName = req.body.params.lastName;
 
         db = await helper.getOracleClient(db, DB_CONFIG_GENERAL);
 
@@ -216,8 +217,29 @@ generalRouter.post("/logs", async (req: Request, res: Response) => {
             .whereIn('SCHEMA_NAME', moduleName)
             .orderBy('ID', 'ASC');
 
-        if(userId) {
-            query.where("USER_ID", userId);
+        if (userId) {
+            const userRow = await db(`${SCHEMA_GENERAL}.USER_DATA`)
+                .select('USER_EMAIL')
+                .where('ID', userId)
+                .first();
+
+            if (userRow && userRow.user_email) {
+                const rows = await db(`${SCHEMA_GENERAL}.USER_DATA`)
+                .select('ID')
+                .whereRaw('LOWER("USER_EMAIL") = ?', [userRow.user_email.toLowerCase()]);
+
+                const matchedUserIds = rows.map(r => Number(r.id));
+
+                if (matchedUserIds.length === 1 && matchedUserIds[0] === userId) {
+                    query.where("USER_ID", userId);
+                }
+
+                else if (matchedUserIds.length > 0) {
+                    query.whereIn("USER_ID", matchedUserIds);
+                }else {
+                    query.where("USER_ID", -1);
+                }
+            }
         }
 
         if(dateFrom && dateTo) {
@@ -226,18 +248,30 @@ generalRouter.post("/logs", async (req: Request, res: Response) => {
                 [dateFrom, dateTo]));
         }
 
-        if (searchQuery) {
-            const lowerSearch = searchQuery.trim().toLowerCase();
+        if (firstName) {
+            const lowerSearchFn = firstName.trim().toLowerCase();
 
             query.where(function () {
-                this.whereRaw(`LOWER(FIRST_NAME_CLIENT) LIKE ?`, [`%${lowerSearch}%`])
-                    .orWhereRaw(`LOWER(LAST_NAME_CLIENT) LIKE ?`, [`%${lowerSearch}%`]);
+                this.whereRaw(`LOWER(FIRST_NAME_CLIENT) LIKE ?`, [`%${lowerSearchFn}%`]);
             });
         }
 
-        const queryUsers = await db(`${SCHEMA_GENERAL}.USER_DATA`)
-            .select({ text: 'USER_EMAIL', value: 'ID' })
-            .orderBy('ID', 'ASC');
+        if (lastName) {
+            const lowerSearchLn = lastName.trim().toLowerCase();
+
+            query.where(function () {
+                this.whereRaw(`LOWER(LAST_NAME_CLIENT) LIKE ?`, [`%${lowerSearchLn}%`]);
+            });
+        }
+
+        const queryUsers = await db(`${SCHEMA_GENERAL}.SUBMISSIONS_LOGS`)
+            .select(
+                db.raw('LOWER("USER_EMAIL") as "text"'),
+                db.raw('MIN("USER_ID") as "value"')
+            )
+            .whereNotNull('USER_ID')
+            .groupByRaw('LOWER("USER_EMAIL")')
+            .orderBy('text', 'ASC');
 
         const moduleLogs = await query;
 
@@ -264,7 +298,8 @@ generalRouter.post("/export/", async (req: Request, res: Response) => {
         let moduleName = req.body.params.moduleName;
         var dateFrom = req.body.params.dateFrom;
         var dateTo = req.body.params.dateTo;
-        let searchQuery = req.body.params.searchQuery;
+        let firstName = req.body.params.firstName;
+        let lastName = req.body.params.lastName;
         db = await helper.getOracleClient(db, DB_CONFIG_GENERAL);
         let userId = req.body.params.userName;
 
@@ -285,8 +320,29 @@ generalRouter.post("/export/", async (req: Request, res: Response) => {
             query.whereIn("ID", requests);
         }
 
-        if(userId) {
-            query.where("USER_ID", userId);
+        if (userId) {
+            const userRow = await db(`${SCHEMA_GENERAL}.USER_DATA`)
+                .select('USER_EMAIL')
+                .where('ID', userId)
+                .first();
+
+            if (userRow && userRow.user_email) {
+                const rows = await db(`${SCHEMA_GENERAL}.USER_DATA`)
+                .select('ID')
+                .whereRaw('LOWER("USER_EMAIL") = ?', [userRow.user_email.toLowerCase()]);
+
+                const matchedUserIds = rows.map(r => Number(r.id));
+
+                if (matchedUserIds.length === 1 && matchedUserIds[0] === userId) {
+                    query.where("USER_ID", userId);
+                }
+
+                else if (matchedUserIds.length > 0) {
+                    query.whereIn("USER_ID", matchedUserIds);
+                }else {
+                    query.where("USER_ID", -1);
+                }
+            }
         }
 
         if(dateFrom && dateTo) {
@@ -295,12 +351,19 @@ generalRouter.post("/export/", async (req: Request, res: Response) => {
                 [dateFrom, dateTo]));
         }
 
-        if (searchQuery) {
-            const lowerSearch = searchQuery.trim().toLowerCase();
+        if (firstName) {
+            const lowerSearchFn = firstName.trim().toLowerCase();
 
             query.where(function () {
-                this.whereRaw(`LOWER(FIRST_NAME_CLIENT) LIKE ?`, [`%${lowerSearch}%`])
-                .orWhereRaw(`LOWER(LAST_NAME_CLIENT) LIKE ?`, [`%${lowerSearch}%`]);
+                this.whereRaw(`LOWER(FIRST_NAME_CLIENT) LIKE ?`, [`%${lowerSearchFn}%`]);
+            });
+        }
+
+        if (lastName) {
+            const lowerSearchLn = lastName.trim().toLowerCase();
+
+            query.where(function () {
+                this.whereRaw(`LOWER(LAST_NAME_CLIENT) LIKE ?`, [`%${lowerSearchLn}%`]);
             });
         }
 

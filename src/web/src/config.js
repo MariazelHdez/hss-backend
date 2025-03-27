@@ -25,7 +25,7 @@ export const sections = [
                 url: "/moduleLogs",
                 icon: "fa-solid fa-book",
                 permissions: [
-                    "dental_view"
+                    "dental_logs"
                 ]
             },
         ]
