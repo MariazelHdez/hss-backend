@@ -1538,7 +1538,7 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
             data.DATE_OF_BIRTH = null;
         }
 
-        if (Array.isArray(dataFiles) && dataFiles.length) {
+        if (Array.isArray(dataFiles) && dataFiles.length > 0) {
             for (const df of dataFiles) {
 
                 if (
@@ -1603,7 +1603,6 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
                     !_.isNil(df.FILE_DATA) &&
                     !df.PROOF_INCOME
                 ) {
-
                     dentalFiles.DENTAL_SERVICE_ID = idSubmission;
                     dentalFiles.DESCRIPTION = df.DESCRIPTION;
                     dentalFiles.FILE_NAME = df.FILE_NAME;
@@ -1644,19 +1643,22 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
                 }
             }
         }
-
-        if (deletedFiles.length) {
+        if (deletedFiles.length  > 0) {
 
             var deletedFilesData = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_FILES`)
-                .select('ID', 'FILE_DATA').whereIn('ID', deletedFiles)
+                .select('ID', 'FILE_DATA', 'FILE_TYPE', 'FILE_NAME').whereIn('ID', deletedFiles)
                 .then((rows: any[]) => {
-                    const filesData: { [key: number]: any } = {};
 
+                    const filesData: { [key: number]: any } = {};
                     for (const row of rows) {
+                        if (!filesData[row.id]) {
+                            filesData[row.id] = {}; // Initialize the object first
+                        }
                         filesData[row.id]["FILE_DATA"] = row.file_data;
                         filesData[row.id]["FILE_NAME"] = row.file_name;
                         filesData[row.id]["FILE_TYPE"] = row.file_type;
                     }
+
 
                     return filesData;
                 });
@@ -1664,7 +1666,6 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
             var deleteFile = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_FILES`)
                 .whereIn("ID", deletedFiles)
                 .del();
-
             if(!deleteFile){
                 if (!responseSent) {
                     res.json({ status:400, message: 'Request could not be processed' });
