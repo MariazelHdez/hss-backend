@@ -215,7 +215,7 @@ generalRouter.post("/logs", async (req: Request, res: Response) => {
 
         let query = db(`${SCHEMA_GENERAL}.SUBMISSIONS_LOGS`)
             .whereIn('SCHEMA_NAME', moduleName)
-            .orderBy('ID', 'ASC');
+            .orderBy('ID', 'DESC');
 
         if (userId) {
             const userRow = await db(`${SCHEMA_GENERAL}.USER_DATA`)
@@ -248,7 +248,7 @@ generalRouter.post("/logs", async (req: Request, res: Response) => {
                 [dateFrom, dateTo]));
         }
 
-        if (firstName) {
+        if (firstName && firstName.trim() !== '') {
             const lowerSearchFn = firstName.trim().toLowerCase();
 
             query.where(function () {
@@ -256,7 +256,7 @@ generalRouter.post("/logs", async (req: Request, res: Response) => {
             });
         }
 
-        if (lastName) {
+        if (lastName && lastName.trim() !== '') {
             const lowerSearchLn = lastName.trim().toLowerCase();
 
             query.where(function () {
