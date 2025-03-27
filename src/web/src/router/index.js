@@ -34,6 +34,7 @@ import DentalAnalytics from "../components/Dental/DentalAnalytics";
 import DentalArchived from "../components/Dental/DentalArchived";
 
 import Dashboard from "../components/Dashboard.vue";
+import ModuleLogs from "../components/General/ModuleLogs.vue";
 
 Vue.use(VueRouter);
 
@@ -42,6 +43,14 @@ const routes = [
     path: "/",
     name: "Dashboard",
     component: Dashboard,
+    meta: {
+      requiresAuth: true
+    }
+  },
+  {
+    path: "/moduleLogs",
+    name: "Logs History",
+    component: ModuleLogs,
     meta: {
       requiresAuth: true
     }
