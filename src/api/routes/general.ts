@@ -213,8 +213,14 @@ generalRouter.post("/logs", async (req: Request, res: Response) => {
 
         db = await helper.getOracleClient(db, DB_CONFIG_GENERAL);
 
+        const dentalLogUsers = db(`${SCHEMA_GENERAL}.SUBMISSIONS_LOGS`)
+            .select('USER_ID')
+            .where('SCHEMA_NAME', 'DENTAL')
+            .whereNotNull('USER_ID');
+
         let query = db(`${SCHEMA_GENERAL}.SUBMISSIONS_LOGS`)
             .whereIn('SCHEMA_NAME', moduleName)
+            .whereIn('USER_ID', dentalLogUsers)
             .orderBy('ID', 'ASC');
 
         if (userId) {
@@ -270,6 +276,7 @@ generalRouter.post("/logs", async (req: Request, res: Response) => {
                 db.raw('MIN("USER_ID") as "value"')
             )
             .whereNotNull('USER_ID')
+            .whereIn('SCHEMA_NAME', ['DENTAL'])
             .groupByRaw('LOWER("USER_EMAIL")')
             .orderBy('text', 'ASC');
 

@@ -376,7 +376,7 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
                 if(valueDependents["c_apply"] == "Yes"){
                     valueDependents["c_apply"] = "Yes, they are applying";
                 }else if(valueDependents["c_apply"] == "No"){
-                    valueDependents["c_apply"] = "No, they alredy have coverage";
+                    valueDependents["c_apply"] = "No, they have coverage";
                 }
             });
         }
@@ -894,7 +894,7 @@ dentalRouter.get("/duplicates/details/:duplicate_id",[param("duplicate_id").isIn
                 if(valueOriginal["c_apply"] == "Yes"){
                     valueOriginal["c_apply"] = "Yes, they are applying";
                 }else if(valueOriginal["c_apply"] == "No"){
-                    valueOriginal["c_apply"] = "No, they alredy have coverage";
+                    valueOriginal["c_apply"] = "No, they have coverage";
                 }
             });
 
@@ -907,7 +907,7 @@ dentalRouter.get("/duplicates/details/:duplicate_id",[param("duplicate_id").isIn
                 if(valueDuplicated["c_apply"] == "Yes"){
                     valueDuplicated["c_apply"] = "Yes, they are applying";
                 }else if(valueDuplicated["c_apply"] == "No"){
-                    valueDuplicated["c_apply"] = "No, they alredy have coverage";
+                    valueDuplicated["c_apply"] = "No, they have coverage";
                 }
             });
         }
@@ -1082,7 +1082,7 @@ dentalRouter.get("/downloadFile/:dentalFile_id",[param("dentalFile_id").isInt().
 
         let safeName = (Math.random() + 1).toString(36).substring(7)+'_'+dentalFiles.file_name;
         let pathPublicFront = path.join(__dirname, "../../");
-        pathFile = pathPublicFront+"dist/web/"+safeName+"."+dentalFiles.file_type;
+        pathFile = pathPublicFront+"/web/public/"+safeName+"."+dentalFiles.file_type;
 
         fs.writeFileSync(pathFile, buffer);
 
@@ -1093,7 +1093,7 @@ dentalRouter.get("/downloadFile/:dentalFile_id",[param("dentalFile_id").isInt().
                 TITLE: safeName+"."+dentalFiles.file_type,
                 SCHEMA_NAME: SCHEMA_DENTAL,
                 TABLE_NAME: "DENTAL_SERVICE_FILES",
-                SUBMISSION_ID: dentalFiles.DENTAL_SERVICE_ID,
+                SUBMISSION_ID: dentalFiles.dental_service_id,
                 FIELD1: dentalFile_id,
                 ACTION_DATA: null,
                 USER_ID: userId
@@ -1129,7 +1129,7 @@ dentalRouter.post("/deleteFile", async (req: Request, res: Response) => {
         var fs = require("fs");
         var file = sanitize(req.body.params.file);
         let pathPublicFront = path.join(__dirname, "../../");
-        var filePath = pathPublicFront+"dist/web/"+file;
+        var filePath = pathPublicFront+"/web/public/"+file;
 
         if(fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);

@@ -151,7 +151,8 @@ export default {
 			for (const obj of newValue) {
 				for (const item of this.applyCoverage) {
 					if (obj.c_apply) {
-						if (obj.c_apply === item.value) {
+						if (obj.c_apply === item.text) {
+							obj.c_apply = item.value;
 							resultApply[obj.id] = item.value;
 							break;
 						}

@@ -442,8 +442,8 @@
 							submission_id: item.submission_id,
 							first_name_client: item.first_name_client,
 							last_name_client: item.last_name_client,
-							user_email: item.user_email,
 							user_name: item.user_name,
+							user_email: item.user_email,
 							action_date: item.action_date
 						}));
 
