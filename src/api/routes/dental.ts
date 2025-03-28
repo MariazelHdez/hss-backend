@@ -1082,7 +1082,7 @@ dentalRouter.get("/downloadFile/:dentalFile_id",[param("dentalFile_id").isInt().
 
         let safeName = (Math.random() + 1).toString(36).substring(7)+'_'+dentalFiles.file_name;
         let pathPublicFront = path.join(__dirname, "../../");
-        pathFile = pathPublicFront+"/web/public/"+safeName+"."+dentalFiles.file_type;
+        pathFile = pathPublicFront+"dist/web/"+safeName+"."+dentalFiles.file_type;
 
         fs.writeFileSync(pathFile, buffer);
 
@@ -1129,7 +1129,7 @@ dentalRouter.post("/deleteFile", async (req: Request, res: Response) => {
         var fs = require("fs");
         var file = sanitize(req.body.params.file);
         let pathPublicFront = path.join(__dirname, "../../");
-        var filePath = pathPublicFront+"/web/public/"+file;
+        var filePath = pathPublicFront+"dist/web/"+file;
 
         if(fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);
