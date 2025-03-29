@@ -517,7 +517,7 @@
 						}
 					})
 					.then((resp) => {
-						this.$refs.notifier.showSuccess(resp.data.message);
+						this.$refs.notifier.showAPIMessages(resp.data);
 						this.selected = [];
 						this.getDataFromApi();
 					})

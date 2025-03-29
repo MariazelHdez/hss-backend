@@ -234,7 +234,8 @@ dentalRouter.patch("/changeStatus", async (req: Request, res: Response) => {
         console.log(e);  // debug if needed
         res.send( {
             status: 400,
-            message: 'Request could not be processed'
+            message: 'Request could not be processed',
+            type: "error"
         });
     }
 });
@@ -1442,16 +1443,17 @@ dentalRouter.post("/storeInternalFields", async (req: Request, res: Response) =>
         }
 
         if(!internalFieldsSaved){
-            res.json({ status:400, message: 'Request could not be processed' });
+            res.json({ status:400, message: 'Request could not be processed', type: "error" });
         }else{
-            res.json({ status:200, message: 'Internal Field saved' });
+            res.json({ status:200, message: 'Internal Field saved', type: "success" });
         }
 
     } catch(e) {
         console.log(e);  // debug if needed
         res.send( {
             status: 400,
-            message: 'Request could not be processed'
+            message: 'Request could not be processed',
+            type: "error"
         });
     }
 });
@@ -1491,15 +1493,16 @@ dentalRouter.post("/storeComments", async (req: Request, res: Response) => {
         }
 
         if(!commentsSaved){
-            res.json({ status:400, message: 'Request could not be processed' });
+            res.json({ status:400, message: 'Request could not be processed', type: "error"  });
         }
 
-        res.json({ status:200, message: 'Comment saved' });
+        res.json({ status:200, message: 'Comment saved', type: "success" });
     } catch(e) {
         console.log(e);  // debug if needed 
         res.send( {
             status: 400,
-            message: 'Request could not be processed'
+            message: 'Request could not be processed',
+            type: "error"
         });
     }
 });
@@ -1574,7 +1577,7 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
 
                     if(!filesSaved) {
                         if (!responseSent) {
-                            res.json({ status:400, message: 'Request could not be processed' });
+                            res.json({ status:400, message: 'Request could not be processed', type: "error" });
                         } else {
                             console.log('Request could not be processed (insert file)');
                         }
@@ -1635,7 +1638,7 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
 
                     if(!updateFile){
                         if (!responseSent) {
-                            res.json({ status:400, message: 'Request could not be processed' });
+                            res.json({ status:400, message: 'Request could not be processed', type: "error" });
                         } else {
                             console.log('Error when updating file');
                         }
@@ -1667,7 +1670,7 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
 
             if(!deleteFile){
                 if (!responseSent) {
-                    res.json({ status:400, message: 'Request could not be processed' });
+                    res.json({ status:400, message: 'Request could not be processed', type: "error" });
                 } else {
                     console.log('Error when deleting files');
                 }
@@ -1712,7 +1715,7 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
 
             if(!deleteDependets){
                 if (!responseSent) {
-                    res.json({ status:400, message: 'Request could not be processed' });
+                    res.json({ status:400, message: 'Request could not be processed', type: "error" });
                 }else{
                     console.log( 'Error when delete dependents');
                 }
@@ -1737,7 +1740,7 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
 
             if(!dependentCreation){
                 if (!responseSent) {
-                    res.json({ status:400, message: 'Request could not be processed' });
+                    res.json({ status:400, message: 'Request could not be processed', type: "error" });
                 }else{
                     console.log( 'Error when create dependents');
                 }
@@ -1764,7 +1767,7 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
 
                 if(!dependentUpdate){
                     if (!responseSent) {
-                        res.json({ status:400, message: 'Request could not be processed' });
+                        res.json({ status:400, message: 'Request could not be processed', type: "error" });
                     }else{
                         console.log( 'Error when update dependents');
                     }
@@ -1786,7 +1789,7 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
 
             if(!dependentDelete){
                 if (!responseSent) {
-                    res.json({ status:400, message: 'Request could not be processed' });
+                    res.json({ status:400, message: 'Request could not be processed', type: "error" });
                 }else{
                     console.log( 'Error when delete dependents');
                 }
@@ -1880,7 +1883,8 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
         console.log(e);  // debug if needed
         res.send( {
             status: 400,
-            message: 'Request could not be processed ' + e
+            message: 'Request could not be processed',
+            type: "error"
         });
     }
 });
