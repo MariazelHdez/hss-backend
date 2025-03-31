@@ -212,7 +212,7 @@ export default {
 				}
 			})
 			.then((resp) => {
-				this.$refs.notifier.showSuccess(resp.data.message);
+				this.$refs.notifier.showAPIMessages(resp.data);
 				this.getDataFromApi();
 				this.$router.push({ path: '/dental/show/'+this.idSubmission });
 			})

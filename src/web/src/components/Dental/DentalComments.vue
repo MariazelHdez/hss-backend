@@ -108,7 +108,7 @@ export default {
 			.then((resp) => {
 				this.comment = null;
 
-				this.$emit("getNotification", resp.data.message);
+				this.$emit("getNotification", resp.data);
 			})
 			.catch((err) => console.error(err));
 

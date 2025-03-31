@@ -34,13 +34,14 @@ const labelColors = [
 	{ label: "Closed", color: "#dd3e22" },
 	{ label: "Declined", color: "#f3b228" },
 	{ label: "Enrolled", color: "#3333ff" },
-	{ label: "Pending", color: "#ff1aff" }
+	{ label: "Pending", color: "#a24bd1" },
+	{ label: "Archived", color: "#64dded" }
 ];
 
 const scData = ref({});
 const sData = ref({});
 const saData = ref({});
-scData.value = setSubmissionsStatusData([0, 0, 0, 0], labelColors);
+scData.value = setSubmissionsStatusData([0, 0, 0, 0, 0, 0], labelColors);
 saData.value = setSubmissionsAgeData([0, 0, 0, 0], []);
 const sgData = ref({});
 

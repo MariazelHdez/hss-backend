@@ -38,6 +38,7 @@
 						variant="underlined"
 						v-model="inputFirstName"
 						persistent-hint
+						@keyup.enter="searchInputData"
 					></v-text-field>
 					<v-text-field
 						label="Client Last Name"
@@ -45,6 +46,7 @@
 						variant="underlined"
 						v-model="inputLastName"
 						persistent-hint
+						@keyup.enter="searchInputData"
 					></v-text-field>
 					<v-tooltip top>
 						<template v-slot:activator="{ on, attrs }">
@@ -331,10 +333,16 @@
 		changeUserSelect(){
 			this.getDataFromApi();
 		},
-		updateDate(){
-			if(this.date !== null && this.dateEnd !== null){
+		updateDate() {
+			if (
+				this.date !== null && this.date !== "" &&
+				this.dateEnd !== null && this.dateEnd !== ""
+			) {
 				this.selected = [];
 				this.getDataFromApi();
+			}else{
+				this.date = firstDay;
+				this.dateEnd = lastDay;
 			}
 		},
 		removeFilters() {
@@ -442,8 +450,8 @@
 							submission_id: item.submission_id,
 							first_name_client: item.first_name_client,
 							last_name_client: item.last_name_client,
-							user_email: item.user_email,
 							user_name: item.user_name,
+							user_email: item.user_email,
 							action_date: item.action_date
 						}));
 
