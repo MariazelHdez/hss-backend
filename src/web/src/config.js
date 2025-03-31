@@ -21,7 +21,7 @@ export const sections = [
                 ]
             },
             {
-                name: "Module Logs",
+                name: "Logs History",
                 url: "/moduleLogs",
                 icon: "fa-solid fa-book",
                 permissions: [

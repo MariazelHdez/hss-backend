@@ -49,7 +49,7 @@ const routes = [
   },
   {
     path: "/moduleLogs",
-    name: "Module Logs",
+    name: "Logs History",
     component: ModuleLogs,
     meta: {
       requiresAuth: true
