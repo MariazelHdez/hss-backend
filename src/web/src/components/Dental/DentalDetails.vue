@@ -284,7 +284,7 @@ export default {
 						query: { type: 'status' }
 					});
 				}else{
-					this.$refs.notifier.showSuccess(resp.data.message);
+					this.$refs.notifier.showAPIMessages(resp.data);
 				}
 			})
 			.catch((err) => console.error(err))
@@ -309,7 +309,7 @@ export default {
 			}, 500);
 		},
 		showNotification(message) {
-			this.$refs.notifier.showSuccess(message);
+			this.$refs.notifier.showAPIMessages(message);
 			this.getDataFromApi();
 		},
 		editSubmission(){

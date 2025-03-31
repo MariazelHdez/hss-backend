@@ -34,17 +34,19 @@ export default {
       this.visible = true;
     },
     showAPIMessages(apiResponse) {
-      if (apiResponse.errors) {
-        return this.showError(apiResponse.errors[0].text);
-      }
-      if (apiResponse.messages) {
-        let message = apiResponse.messages[0];
-        if (message.variant == "success") this.showSuccess(message.text);
-        else if (message.variant == "error") this.showError(message.text);
-        else this.show(message.variant, "mdi-help-circle", message.text);
+      if (apiResponse?.message && apiResponse?.type) {
+        if (apiResponse.type === "success") {
+          this.showSuccess(apiResponse.message);
+        } else if (apiResponse.type === "error") {
+          this.showError(apiResponse.message);
+        } else {
+          this.show(apiResponse.type, "mdi-help-circle", apiResponse.message);
+        }
+
         return;
+      }else{
+        this.show("primary", "mdi-information", "Something wrong when showing Notification");
       }
-      this.show("primary", "mdi-check", "Complete");
     },
   },
 };
