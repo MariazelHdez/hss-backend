@@ -499,6 +499,11 @@ div.row.container-actions.align-center{
     align-items: center;
 }
 
+.v-date-picker-table{
+    height: 100%;
+    max-height: 300px;
+}
+
 @media (max-width: 600px){
     .maxh-10{
         max-height: 40px;
