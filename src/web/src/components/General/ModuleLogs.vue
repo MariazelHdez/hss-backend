@@ -104,11 +104,13 @@
 							v-bind="attrs"
 							v-on="on"
 							:disabled="dateDisabled"
+							readonly
 						></v-text-field>
 					</template>
 					<v-date-picker
 						v-model="date"
 						no-title
+						show-adjacent-months
 						@input="menu = false"
 						@change="updateDate"
 					></v-date-picker>
@@ -137,11 +139,13 @@
 							v-bind="attrs"
 							v-on="on"
 							:disabled="dateDisabled"
+							readonly
 						></v-text-field>
 					</template>
 					<v-date-picker
 						v-model="dateEnd"
 						no-title
+						show-adjacent-months
 						@input="menuEnd = false"
 						@change="updateDate"
 					></v-date-picker>
