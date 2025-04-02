@@ -426,12 +426,20 @@ export default {
 				this.provideDemographic(result.key, 'D');
 			}
 
-			if(newValue.identify_groups) {
-				let groupsElements = newValue.identify_groups.split(/,\s(?!Inuk\/Inuit)/);
+			if (newValue.identify_groups) {
+				let groupsElements = newValue.identify_groups
+					.toLowerCase()
+					.replace(/\s+/g, ' ')
+					.trim();
 
-				this.selectedGroups = Object.values(this.groups)
-									.filter(item => groupsElements.includes(item.description))
-									.map(item => item.id);
+				this.selectedGroups = this.groups
+					.filter((group) => {
+						const descNormalized = group.description
+							.toLowerCase()
+							.replace(/\s+/g, ' ')
+							.trim();
+						return groupsElements.includes(descNormalized);
+					}).map((group) => group.id);
 			}
 
 			if(newValue.gender) {
@@ -478,17 +486,20 @@ export default {
 				this.selectedTimePeriod = (this.timePeriods.find(option => option.value == newValue.last_saw_dentist)?.value) ?? null;
 			}
 
-			if(newValue.reason_for_dentist) {
-				const groupsElements = this.reasons.reduce((result, item) => {
-					if (newValue.reason_for_dentist.includes(item.description)) {
-						result.push(item.description);
-					}
-					return result;
-				}, []);
+			if (newValue.reason_for_dentist) {
+				let normalizedInput = newValue.reason_for_dentist.replace(/\s+/g, ' ').trim();
+				let selectedIds = [];
 
-				this.selectedReasons = Object.values(this.reasons)
-									.filter(item => groupsElements.includes(item.description))
-									.map(item => item.id);
+				for (const reason of this.reasons) {
+					const normalizedDesc = reason.description.replace(/\s+/g, ' ').trim();
+
+					if (normalizedInput.includes(normalizedDesc)) {
+						selectedIds.push(reason.id);
+						normalizedInput = normalizedInput.replace(normalizedDesc, '').trim();
+					}
+				}
+
+				this.selectedReasons = selectedIds;
 			}
 
 			if(newValue.buy_supplies) {
@@ -591,37 +602,36 @@ export default {
 
 			}
 
-			if(newValue.services_needed) {
+			if (newValue.services_needed) {
 
-				let stringServices = newValue.services_needed;
+				let normalizedStr = newValue.services_needed.replace(/\s+/g, ' ').trim();
+				let selectedIds = [];
 
-				for (const item of this.services) {
-					const description = item.description;
-					const id = item.id;
-
-					if(description !== "other"){
-						while (stringServices.includes(description)) {
-							stringServices = stringServices.replace(description, id);
-						}
+				for (const service of this.services) {
+					if (service.description !== "other") {
+					const normalizedDesc = service.description.replace(/\s+/g, ' ').trim();
+					if (normalizedStr.includes(normalizedDesc)) {
+						selectedIds.push(service.id);
+						normalizedStr = normalizedStr.replace(normalizedDesc, '').trim();
+					}
 					}
 				}
 
-				let arrayData = stringServices.split(/,(?=\s*\D|$)/).map(item => item.trim());
+				const customParts = normalizedStr.split(',')
+					.map(part => part.trim())
+					.filter(part => part !== "");
+				normalizedStr = customParts.join(', ');
 
-				this.selectedServices = arrayData.map(item => {
-					const id = item;
-
-					if (!isNaN(id)) {
-						return parseInt(item);
-					} else {
-						const dataItem = this.services.find(data => data.description === 'other');
-						this.customService = item;
-						this.showCustomService = true;
-
-						return parseInt(dataItem.id);
+				if (normalizedStr.length > 0) {
+					this.customService = normalizedStr;
+					this.showCustomService = true;
+					const otherService = this.services.find(s => s.description === "other");
+					if (otherService) {
+					selectedIds.push(otherService.id);
 					}
-				});
+				}
 
+				this.selectedServices = selectedIds;
 			}
 
 

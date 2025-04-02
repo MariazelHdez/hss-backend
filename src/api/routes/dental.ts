@@ -355,11 +355,50 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
         }
 
         dentalService.flagDemographic = true;
+        dentalService.flagDentalInformation = true;
         if(!_.isEmpty(dentalService.ask_demographic)){
             let askDemographic = dentalService.ask_demographic.split(",");
 
             if(askDemographic[0].toLowerCase() == "no"){
                 dentalService.flagDemographic = false;
+                dentalService.flagDentalInformation = false;
+            }else{
+
+                const dentalInformationFields = [
+                    'often_brush',
+                    'state_teeth',
+                    'often_floss',
+                    'state_gums',
+                    'last_saw_dentist',
+                    'reason_for_dentist',
+                    'buy_supplies',
+                    'pay_for_visit',
+                    'barriers',
+                    'problems',
+                    'services_needed'
+                ];
+
+                const allFieldsEmpty = dentalInformationFields.every((fieldName) => {
+                    const val = dentalService[fieldName];
+
+                    if(val == null){
+                        return true;
+                    }
+
+                    if(typeof val === 'string') {
+                        return val.trim().length === 0;
+                    }
+
+                    if(Buffer.isBuffer(val)) {
+                        return val.length === 0;
+                    }
+
+                    return false;
+                });
+
+                if (allFieldsEmpty) {
+                    dentalService.flagDentalInformation = false;
+                }
             }
         }
 
@@ -801,7 +840,7 @@ dentalRouter.get("/duplicates/details/:duplicate_id",[param("duplicate_id").isIn
         var dentalFiles = Object();
         var dentalFilesDuplicated = Object();
         var flagDependents = false;
-        var flagDemographic = true;
+        var flagDemographic = false;
         var flagFile = false;
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
 
@@ -870,8 +909,8 @@ dentalRouter.get("/duplicates/details/:duplicate_id",[param("duplicate_id").isIn
             if(!_.isEmpty(value.ask_demographic)){
                 let askDemographic = value.ask_demographic.split(",");
 
-                if(askDemographic[0].toLowerCase() !== "no"){
-                    flagDemographic = false;
+                if(askDemographic[0].toLowerCase() !== "no" && !flagDemographic){
+                    flagDemographic = true;
                 }
             }
 

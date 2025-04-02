@@ -123,7 +123,7 @@
 				/>
 
 				<DentalInformation
-					v-if="itemsDental.flagDemographic"
+					v-if="itemsDental.flagDentalInformation"
 					v-bind:dentalService="itemsDental"
 					v-bind:panelModel="panelModel"
 				/>
