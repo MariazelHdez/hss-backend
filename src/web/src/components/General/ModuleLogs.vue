@@ -335,6 +335,7 @@
 			this.getDataFromApi();
 		},
 		changeUserSelect(){
+			this.selected = [];
 			this.getDataFromApi();
 		},
 		updateDate() {
@@ -359,6 +360,7 @@
 			this.inputFirstName = "";
 			this.inputLastName = "";
 			this.searchInputDisabled = true;
+			this.selected = [];
 			this.getDataFromApi();
 		},
 		getDataFromApi() {
@@ -415,6 +417,7 @@
 			const lastName = this.inputLastName?.trim() || "";
 
 			if (firstName !== "" || lastName !== "") {
+				this.selected = [];
 				this.getDataFromApi();
 			}
 		},
