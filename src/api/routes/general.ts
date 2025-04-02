@@ -213,39 +213,42 @@ generalRouter.post("/logs", async (req: Request, res: Response) => {
 
         db = await helper.getOracleClient(db, DB_CONFIG_GENERAL);
 
-        const dentalLogUsers = db(`${SCHEMA_GENERAL}.SUBMISSIONS_LOGS`)
-            .select('USER_ID')
-            .where('SCHEMA_NAME', 'DENTAL')
-            .whereNotNull('USER_ID');
+        const dentalLogUsers = await db(`${SCHEMA_GENERAL}.USER_ROLES as ur`)
+            .join(`${SCHEMA_GENERAL}.ROLES_DATA as rd`, 'ur.ROLE_ID', 'rd.ID')
+            .join(`${SCHEMA_GENERAL}.USER_DATA as ud`, 'ur.USER_ID', 'ud.ID')
+            .whereIn('rd.ID', [7, 8])
+            .distinct('ur.USER_ID', 'ud.USER_EMAIL')
+            .select('ur.USER_ID', 'ud.USER_EMAIL');
+
+        const userEmailMap = dentalLogUsers.reduce((acc, { user_id, user_email }) => {
+            acc[user_id] = user_email;
+            return acc;
+            }, {});
+
+        const dentalLogUserIds = dentalLogUsers.map(row => row.user_id);
 
         let query = db(`${SCHEMA_GENERAL}.SUBMISSIONS_LOGS`)
             .whereIn('SCHEMA_NAME', moduleName)
-            .whereIn('USER_ID', dentalLogUsers)
             .orderBy('ID', 'DESC');
 
         if (userId) {
-            const userRow = await db(`${SCHEMA_GENERAL}.USER_DATA`)
-                .select('USER_EMAIL')
-                .where('ID', userId)
-                .first();
+            const userEmail = userEmailMap[userId];
 
-            if (userRow && userRow.user_email) {
+            if (userEmail) {
                 const rows = await db(`${SCHEMA_GENERAL}.USER_DATA`)
-                .select('ID')
-                .whereRaw('LOWER("USER_EMAIL") = ?', [userRow.user_email.toLowerCase()]);
+                    .select('ID')
+                    .whereRaw('LOWER("USER_EMAIL") = ?', [userEmail.toLowerCase()]);
 
                 const matchedUserIds = rows.map(r => Number(r.id));
 
                 if (matchedUserIds.length === 1 && matchedUserIds[0] === userId) {
                     query.where("USER_ID", userId);
-                }
-
-                else if (matchedUserIds.length > 0) {
+                }else if (matchedUserIds.length > 0) {
                     query.whereIn("USER_ID", matchedUserIds);
-                }else {
-                    query.where("USER_ID", -1);
                 }
             }
+        }else{
+            query.whereIn('USER_ID', dentalLogUserIds);
         }
 
         if(dateFrom && dateTo) {
@@ -270,15 +273,10 @@ generalRouter.post("/logs", async (req: Request, res: Response) => {
             });
         }
 
-        const queryUsers = await db(`${SCHEMA_GENERAL}.SUBMISSIONS_LOGS`)
-            .select(
-                db.raw('LOWER("USER_EMAIL") as "text"'),
-                db.raw('MIN("USER_ID") as "value"')
-            )
-            .whereNotNull('USER_ID')
-            .whereIn('SCHEMA_NAME', ['DENTAL'])
-            .groupByRaw('LOWER("USER_EMAIL")')
-            .orderBy('text', 'ASC');
+        const queryUsers = dentalLogUsers.map(item => ({
+            text: item.user_email.toLowerCase(),
+            value: item.user_id
+        }));
 
         const moduleLogs = await query;
 
@@ -323,33 +321,42 @@ generalRouter.post("/export/", async (req: Request, res: Response) => {
                     )
                     .whereIn('SCHEMA_NAME', moduleName);
 
+        const dentalLogUsers = await db(`${SCHEMA_GENERAL}.USER_ROLES as ur`)
+            .join(`${SCHEMA_GENERAL}.ROLES_DATA as rd`, 'ur.ROLE_ID', 'rd.ID')
+            .join(`${SCHEMA_GENERAL}.USER_DATA as ud`, 'ur.USER_ID', 'ud.ID')
+            .whereIn('rd.ID', [7, 8])
+            .distinct('ur.USER_ID', 'ud.USER_EMAIL')
+            .select('ur.USER_ID', 'ud.USER_EMAIL');
+
+        const userEmailMap = dentalLogUsers.reduce((acc, { user_id, user_email }) => {
+            acc[user_id] = user_email;
+            return acc;
+            }, {});
+
+        const dentalLogUserIds = dentalLogUsers.map(row => row.user_id);
+
         if(requests.length > 0){
             query.whereIn("ID", requests);
         }
 
         if (userId) {
-            const userRow = await db(`${SCHEMA_GENERAL}.USER_DATA`)
-                .select('USER_EMAIL')
-                .where('ID', userId)
-                .first();
+            const userEmail = userEmailMap[userId];
 
-            if (userRow && userRow.user_email) {
+            if (userEmail) {
                 const rows = await db(`${SCHEMA_GENERAL}.USER_DATA`)
-                .select('ID')
-                .whereRaw('LOWER("USER_EMAIL") = ?', [userRow.user_email.toLowerCase()]);
+                    .select('ID')
+                    .whereRaw('LOWER("USER_EMAIL") = ?', [userEmail.toLowerCase()]);
 
                 const matchedUserIds = rows.map(r => Number(r.id));
 
                 if (matchedUserIds.length === 1 && matchedUserIds[0] === userId) {
                     query.where("USER_ID", userId);
-                }
-
-                else if (matchedUserIds.length > 0) {
+                }else if (matchedUserIds.length > 0) {
                     query.whereIn("USER_ID", matchedUserIds);
-                }else {
-                    query.where("USER_ID", -1);
                 }
             }
+        }else{
+            query.whereIn('USER_ID', dentalLogUserIds);
         }
 
         if(dateFrom && dateTo) {
