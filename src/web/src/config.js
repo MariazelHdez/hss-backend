@@ -193,7 +193,7 @@ export const sections = [
                 ]
             },
             {
-                name: "Archived",
+                name: "Past Records",
                 url: "/dentalArchived",
                 icon:  "fa-solid fa-box-archive",
                 permissions: [

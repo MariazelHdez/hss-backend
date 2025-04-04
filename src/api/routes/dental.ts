@@ -117,8 +117,9 @@ dentalRouter.post("/", async (req: Request, res: Response) => {
             query.whereNotIn("STATUS", [4, 6]);
         } else if (exportFlag) {
             query.whereNotIn("STATUS", [4]);
+        }else if (archivedFlag) {
+            query.whereNotIn("STATUS", [1,2,3,5]);
         }
-       
 
         const countAllQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
 
@@ -132,16 +133,14 @@ dentalRouter.post("/", async (req: Request, res: Response) => {
             query.where(db.raw("TO_CHAR(?, 'YYYY-MM-DD') BETWEEN ? AND ?", [createdAt, dateFrom, dateTo]));
         }
 
-        if (status_request && status_request.length > 0 && !archivedFlag) {
+        if (status_request && status_request.length > 0) {
             query.whereIn("STATUS", status_request);
-        }else if (archivedFlag) {
-            query.where("STATUS", 6);
         }
 
         if (searchQuery) {
             const sanitizedSearch = searchQuery.trim().replace(/[^a-zA-Z0-9\s@.-]/g, "");
             const lowerSearch = sanitizedSearch.toLowerCase();
-            
+
             query.where(function () {
                 this.whereRaw(`LOWER(FIRST_NAME) LIKE ?`, [`%${lowerSearch}%`])
                 .orWhereRaw(`LOWER(MIDDLE_NAME) LIKE ?`, [`%${lowerSearch}%`])
@@ -174,7 +173,7 @@ dentalRouter.post("/", async (req: Request, res: Response) => {
         const countSubmissions = countResult ? countResult.count : 0;
         const countAll = countResultAll ? countResultAll.count : 0;
 
-        var dentalStatus = await getAllStatus();
+        var dentalStatus = await getAllStatus(archivedFlag);
         res.send({data: dentalService, dataStatus: dentalStatus, total: countSubmissions, all: countAll});
 
     } catch(e) {
@@ -591,7 +590,21 @@ dentalRouter.post("/export/", async (req: Request, res: Response) => {
                 "DENTAL_SERVICE_INTERNAL_FIELDS.POLICY_NUMBER as policy_number",
                 db.raw("COALESCE(TO_CHAR(DENTAL_SERVICE_INTERNAL_FIELDS.CREATED_AT, 'YYYY-MM-DD HH24:MI:SS'), '') AS created_at_if")
             )
-            .where("DENTAL_SERVICE_SUBMISSIONS_DETAILS.STATUS", "<>", 4);
+
+        if (archivedFlag) {
+            query.join(
+                `${SCHEMA_DENTAL}.DENTAL_STATUS AS ds`,
+                'DENTAL_SERVICE_SUBMISSIONS_DETAILS.STATUS',
+                '=',
+                'ds.ID'
+            );
+
+            query.select('ds.DESCRIPTION as STATUS_DESCRIPTION');
+
+            query.whereNotIn("DENTAL_SERVICE_SUBMISSIONS_DETAILS.STATUS", [1,2,3,5]);
+        } else {
+            query.where("DENTAL_SERVICE_SUBMISSIONS_DETAILS.STATUS", "<>", 4);
+        }
 
         if (requests.length > 0 && !isAllData) {
             query.whereIn("DENTAL_SERVICE_SUBMISSIONS_DETAILS.ID", requests);
@@ -605,24 +618,21 @@ dentalRouter.post("/export/", async (req: Request, res: Response) => {
             query.whereRaw(`TRUNC(TO_DATE(DENTAL_SERVICE_SUBMISSIONS_DETAILS.CREATED_AT, 'YYYY-MM-DD HH24:MI:SS')) BETWEEN TO_DATE(?, 'YYYY-MM-DD') AND TO_DATE(?, 'YYYY-MM-DD')`, [dateFrom, dateTo]);
         }
 
-        if (status_request && status_request.length > 0 && !archivedFlag) {
+        if (status_request && status_request.length > 0) {
             query.whereIn("DENTAL_SERVICE_SUBMISSIONS_DETAILS.STATUS", status_request);
-        }else if (archivedFlag) {
-            query.where("DENTAL_SERVICE_SUBMISSIONS_DETAILS.STATUS", 6);
+        }
 
-            if (searchQuery) {
-                const lowerSearch = searchQuery.toLowerCase();
+        if (archivedFlag && searchQuery) {
+            const lowerSearch = searchQuery.toLowerCase();
 
-                query.where(function () {
-                    this.whereRaw(`LOWER(FIRST_NAME) LIKE ?`, [`%${lowerSearch}%`])
-                    .orWhereRaw(`LOWER(MIDDLE_NAME) LIKE ?`, [`%${lowerSearch}%`])
-                    .orWhereRaw(`LOWER(LAST_NAME) LIKE ?`, [`%${lowerSearch}%`])
-                    .orWhereRaw(`LOWER(HEALTH_CARD_NUMBER) LIKE ?`, [`%${lowerSearch}%`])
-                    .orWhereRaw(`LOWER(POSTAL_CODE) LIKE ?`, [`%${lowerSearch}%`])
-                    .orWhereRaw(`LOWER(EMAIL) LIKE ?`, [`%${lowerSearch}%`]);
-                });
-            }
-
+            query.where(function () {
+                this.whereRaw(`LOWER(FIRST_NAME) LIKE ?`, [`%${lowerSearch}%`])
+                .orWhereRaw(`LOWER(MIDDLE_NAME) LIKE ?`, [`%${lowerSearch}%`])
+                .orWhereRaw(`LOWER(LAST_NAME) LIKE ?`, [`%${lowerSearch}%`])
+                .orWhereRaw(`LOWER(HEALTH_CARD_NUMBER) LIKE ?`, [`%${lowerSearch}%`])
+                .orWhereRaw(`LOWER(POSTAL_CODE) LIKE ?`, [`%${lowerSearch}%`])
+                .orWhereRaw(`LOWER(EMAIL) LIKE ?`, [`%${lowerSearch}%`]);
+            });
         }
 
         if (isAllData) {
@@ -661,7 +671,7 @@ dentalRouter.post("/export/", async (req: Request, res: Response) => {
 
         dentalServiceDependents.forEach(valueDependents => {
             valueDependents.c_dob = valueDependents.c_dob || "N/A";
-            console.log(valueDependents.c_apply);
+
             valueDependents.c_apply = valueDependents.c_apply === "Yes" ? "Yes, they are applying" : "No, they already have coverage";
         });
 
@@ -1980,12 +1990,17 @@ async function getDependents(idDentalService: number, arrayDependets: any[]): Pr
     return dependents;
 }
 
-async function getAllStatus(): Promise<any[]>{
+async function getAllStatus(archivedFlag: boolean = false): Promise<any[]> {
     var dentalServiceStatus = Array();
+    let statusNotAllowed = [4];
     db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
 
+    if(archivedFlag){
+        statusNotAllowed = [1,2,3,5];
+    }
+
     dentalServiceStatus = await db(`${SCHEMA_DENTAL}.DENTAL_STATUS`).select()
-    .whereNot('ID', 4).orderBy('ID', 'ASC').then((rows: any) => {
+    .whereNotIn('ID', statusNotAllowed).orderBy('ID', 'ASC').then((rows: any) => {
 
         let arrayResult = Array();
 
