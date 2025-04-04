@@ -1,7 +1,7 @@
 <template>
     <div class="dental-service">
 		<v-row class="mb-5" no-gutters>
-			<span class="title-service">Dental Service Requests</span>
+			<span class="title-service">Dental Service Past Records</span>
 		</v-row>
 
 		<Notifications ref="notifier"></Notifications>
@@ -42,7 +42,22 @@
 					</v-btn>
 				</div>	
 			</v-col>
+			<v-col
+				cols="12"
+                sm="12"
+                md="12"
+                lg="2"
+			>
+				<v-select
+					v-model="statusSelected"
+					:items="statusFilter"
+					label="Select Status"
+					multiple
+					persistent-hint
+					@change="changeStatusSelect"
+				></v-select>
 
+			</v-col>
 			<v-col
 				cols="12"
                 sm="12"
@@ -139,16 +154,18 @@
 					<span>Clear Filters</span>
 				</v-tooltip>
 			</v-col>
-
+		</v-row>
+		<v-row>
 			<v-col
 				cols="10"
 				sm="10"
 				md="10"
-				lg="2"
+				lg="12"
+				class="text-right"
 			>
 				<v-btn
 					:loading="loadingExport"
-					:disabled="loadingExport"
+					:disabled="disabledExport"
 					color="#F3A901"
 					class="ma-2 white--text apply-btn"
 					@click="exportFile()"
@@ -259,8 +276,8 @@
 		{ text: "Dependents", value: "dependent", sortable: true },
 		{ text: "Proof of income", value: "file_dental", sortable: true },
 		{ text: "Comments", value: "has_comments", sortable: true },
-		{ text: "Created", value: "created_at", width: "15%", sortable: true },
 		{ text: "Status", value: "status_description", sortable: true },
+		{ text: "Created", value: "created_at", width: "15%", sortable: true },
 		{ text: "", value: "showurl", sortable: false },
 		],
 		page: 1,
@@ -270,6 +287,8 @@
 		searchInputDisabled: true,
 		searchInputQuery: '',
 		archivedFlag: true,
+		loadingExport: false,
+		disabledExport: false,
 	}),
 	components: {
 		Notifications
@@ -352,6 +371,7 @@
 		},
 		getDataFromApi() {
 			this.loading = true;
+			this.disabledExport = true;
 			axios
 			.post(DENTAL_URL, {
 				params: {
@@ -366,7 +386,7 @@
 			.then((resp) => {
 				this.items = resp.data.data;
 				this.bulkActions = resp.data.dataStatus;
-				this.statusFilter = resp.data.dataStatus.filter((element) => element.value != 4);
+				this.statusFilter = resp.data.dataStatus;
 				this.loading = false;
 				this.dateDisabled = false;
 
@@ -384,6 +404,7 @@
 			.catch((err) => console.error(err))
 			.finally(() => {
 				this.loading = false;
+				this.disabledExport = false;
 			});
 		},
 		showDetails(route) {
@@ -445,6 +466,8 @@
 			this.getDataFromApi();
 		},
 		exportFile () {
+			this.loadingExport = true;
+			this.disabledExport = true;
 			var idArray = [];
 			this.selected.forEach((e) => {
 				idArray.push(e.id);
@@ -454,7 +477,7 @@
 			.post(DENTAL_EXPORT_FILE_URL, {
 				params: {
 					requests: idArray,
-					status: this.selectedStatus,
+					status: this.statusSelected,
 					dateFrom: this.date,
 					dateTo: this.dateEnd,
 					dateYear: this.dateYear,
@@ -505,7 +528,8 @@
 					"INCOME AMOUNT",
 					"DATE OF ENROLLMENT",
 					"POLICY NUMBER",
-					"INTERNAL FIELD CREATED AT"
+					"INTERNAL FIELD CREATED AT",
+					"STATUS"
 					],
 				],
 				{ origin: "A1" }
@@ -533,7 +557,8 @@
 			})
 			.catch((err) => console.error(err))
 			.finally(() => {
-				this.loading = false;
+				this.loadingExport = false;
+				this.disabledExport = false;
 			});
 		},
 	},
