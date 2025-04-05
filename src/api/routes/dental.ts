@@ -844,74 +844,77 @@ dentalRouter.get("/duplicates/details/:duplicate_id",[param("duplicate_id").isIn
         let duplicate_id = Number(req.params.duplicate_id);
         var dentalOriginal = Object();
         var dentalDuplicate = Object();
-        var dentalEntries = Object();
-        var dependentsOriginal = Object();
-        var dependentsDuplicated = Object();
-        var dentalFiles = Object();
-        var dentalFilesDuplicated = Object();
         var flagDependents = false;
         var flagDemographic = false;
         var flagFile = false;
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
 
         var duplicateEntry = await db(`${SCHEMA_DENTAL}.DENTAL_DUPLICATED_REQUESTS`)
-            .where("ID", duplicate_id).then((rows: any) => {
-                let arrayResult = Object();
+            .where("ID", duplicate_id)
+            .select('ORIGINAL_ID AS original', 'DUPLICATED_ID AS duplicated')
+            .first();
 
-                for (let row of rows) {
-                    arrayResult.original = row['original_id'];
-                    arrayResult.duplicated = row['duplicated_id'];
-                }
+        const [
+                dentalEntries,
+                dependentsOriginal,
+                dependentsDuplicated,
+                dentalFiles,
+                dentalFilesDuplicated
+            ] = await Promise.all([
 
-                return arrayResult;
-            });
-
-        dentalEntries = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_SUBMISSIONS_DETAILS`)
+                db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_SUBMISSIONS_DETAILS`)
                     .whereIn("ID", [duplicateEntry.original, duplicateEntry.duplicated])
-                    .whereNot('STATUS', '4');
+                    .whereNot("STATUS", "4"),
 
-        dependentsOriginal = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_DEPENDENTS`)
-                    .select('DENTAL_SERVICE_DEPENDENTS.ID',
-                            'DENTAL_SERVICE_DEPENDENTS.DENTAL_SERVICE_ID',
-                            'DENTAL_SERVICE_DEPENDENTS.C_FIRSTNAME',
-                            'DENTAL_SERVICE_DEPENDENTS.C_LASTNAME',
-                            db.raw("TO_CHAR(DENTAL_SERVICE_DEPENDENTS.C_DOB, 'YYYY-MM-DD') AS C_DOB"),
-                            'DENTAL_SERVICE_DEPENDENTS.C_HEALTHCARE',
-                            'DENTAL_SERVICE_DEPENDENTS.C_APPLY'
-                    )
-                    .where('DENTAL_SERVICE_DEPENDENTS.DENTAL_SERVICE_ID', duplicateEntry.original);
-
-        dependentsDuplicated = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_DEPENDENTS`)
-                    .select('DENTAL_SERVICE_DEPENDENTS.ID',
-                        'DENTAL_SERVICE_DEPENDENTS.DENTAL_SERVICE_ID',
-                        'DENTAL_SERVICE_DEPENDENTS.C_FIRSTNAME',
-                        'DENTAL_SERVICE_DEPENDENTS.C_LASTNAME',
+                db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_DEPENDENTS`)
+                    .select(
+                        "DENTAL_SERVICE_DEPENDENTS.ID",
+                        "DENTAL_SERVICE_DEPENDENTS.DENTAL_SERVICE_ID",
+                        "DENTAL_SERVICE_DEPENDENTS.C_FIRSTNAME",
+                        "DENTAL_SERVICE_DEPENDENTS.C_LASTNAME",
                         db.raw("TO_CHAR(DENTAL_SERVICE_DEPENDENTS.C_DOB, 'YYYY-MM-DD') AS C_DOB"),
-                        'DENTAL_SERVICE_DEPENDENTS.C_HEALTHCARE',
-                        'DENTAL_SERVICE_DEPENDENTS.C_APPLY'
+                        "DENTAL_SERVICE_DEPENDENTS.C_HEALTHCARE",
+                        "DENTAL_SERVICE_DEPENDENTS.C_APPLY"
                     )
-                    .where('DENTAL_SERVICE_DEPENDENTS.DENTAL_SERVICE_ID', duplicateEntry.duplicated);
+                    .where("DENTAL_SERVICE_DEPENDENTS.DENTAL_SERVICE_ID", duplicateEntry.original),
 
-        dentalFiles = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_FILES`)
-            .where("DENTAL_SERVICE_ID", duplicateEntry.original).select()
-            .then((rows: any[]) => {
-                return rows.length > 0 ? rows : null;
-            });
+                db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_DEPENDENTS`)
+                    .select(
+                        "DENTAL_SERVICE_DEPENDENTS.ID",
+                        "DENTAL_SERVICE_DEPENDENTS.DENTAL_SERVICE_ID",
+                        "DENTAL_SERVICE_DEPENDENTS.C_FIRSTNAME",
+                        "DENTAL_SERVICE_DEPENDENTS.C_LASTNAME",
+                        db.raw("TO_CHAR(DENTAL_SERVICE_DEPENDENTS.C_DOB, 'YYYY-MM-DD') AS C_DOB"),
+                        "DENTAL_SERVICE_DEPENDENTS.C_HEALTHCARE",
+                        "DENTAL_SERVICE_DEPENDENTS.C_APPLY"
+                    )
+                    .where("DENTAL_SERVICE_DEPENDENTS.DENTAL_SERVICE_ID", duplicateEntry.duplicated),
 
-        if(!_.isEmpty(dentalFiles)){
+                db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_FILES`)
+                    .where("DENTAL_SERVICE_ID", duplicateEntry.original)
+                    .select()
+                    .then((rows: any[]) => rows.length > 0 ? rows : null),
+
+                db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_FILES`)
+                    .where("DENTAL_SERVICE_ID", duplicateEntry.duplicated)
+                    .select()
+                    .then((rows: any[]) => rows.length > 0 ? rows : null),
+        ]);
+
+        if (dentalFiles && !_.isEmpty(dentalFiles)) {
             flagFile = true;
-            dentalFiles.file_fullName = dentalFiles.file_name+"."+dentalFiles.file_type;
+
+            dentalFiles.forEach(file => {
+                file.file_fullName = file.file_name + "." + file.file_type;
+            });
         }
 
-        dentalFilesDuplicated = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_FILES`)
-            .where("DENTAL_SERVICE_ID", duplicateEntry.duplicated).select()
-            .then((rows: any[]) => {
-                return rows.length > 0 ? rows : null;
-            });
-
-        if(!_.isEmpty(dentalFilesDuplicated)){
+        if (dentalFilesDuplicated && !_.isEmpty(dentalFilesDuplicated)) {
             flagFile = true;
-            dentalFilesDuplicated.file_fullName = dentalFilesDuplicated.file_name+"."+dentalFilesDuplicated.file_type;
+
+            dentalFilesDuplicated.forEach(file => {
+                file.file_fullName = file.file_name + "." + file.file_type;
+            });
         }
 
         dentalEntries.forEach(function (value: any) {
