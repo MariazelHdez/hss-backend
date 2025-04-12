@@ -181,6 +181,15 @@ import Notifications from "../Notifications.vue";
 
 export default {
 	name: "DentalDetails",
+	beforeRouteLeave(to, from, next) {
+
+		if (!to.path.includes('/dental')) {
+			sessionStorage.removeItem('dentalFilters');
+			sessionStorage.removeItem('dentalArchiveFilters');
+		}
+
+		next();
+	},
 	data: () => ({
 		loading: false,
 		selectAction:[],

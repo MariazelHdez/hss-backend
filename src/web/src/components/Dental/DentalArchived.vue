@@ -211,17 +211,21 @@
 	name: "DentalServiceIndex",
 	beforeRouteLeave(to, from, next) {
 
-		sessionStorage.setItem(
-			"dentalArchiveFilters",
-			JSON.stringify({
-				searchInputQuery: this.searchInputQuery,
-				date: this.date,
-				dateEnd: this.dateEnd,
-				dateYear: this.dateYear,
-				selectedYear: this.selectedYear,
-				statusSelected: this.statusSelected,
-			})
-		);
+		if (!to.path.includes('/dental')) {
+			sessionStorage.removeItem('dentalArchiveFilters');
+		}else{
+			sessionStorage.setItem(
+				"dentalArchiveFilters",
+				JSON.stringify({
+					searchInputQuery: this.searchInputQuery,
+					date: this.date,
+					dateEnd: this.dateEnd,
+					dateYear: this.dateYear,
+					selectedYear: this.selectedYear,
+					statusSelected: this.statusSelected,
+				})
+			);
+		}
 
 		next();
 	},

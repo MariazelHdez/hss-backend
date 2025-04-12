@@ -109,7 +109,6 @@ dentalRouter.post("/", async (req: Request, res: Response) => {
         const archivedFlag = req.body.params?.archivedFlag ?? false;
         const exportFlag = req.body.params?.exportFlag ?? false;
 
-
         db = await helper.getOracleClient(db, DB_CONFIG_DENTAL);
         let query = db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_SUBMISSIONS`)
 
@@ -156,7 +155,7 @@ dentalRouter.post("/", async (req: Request, res: Response) => {
         if (sortBy) {
             query = query.orderBy(sortBy.toUpperCase(), sortOrder);
         } else {
-            query = query.orderBy('ID', 'ASC');
+            query = query.orderBy('CREATED_AT', 'DESC');
         }
 
         if(pageSize !== -1 && initialFetch == 0){
