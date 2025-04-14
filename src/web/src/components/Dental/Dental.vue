@@ -230,18 +230,24 @@
 	export default {
 	name: "DentalServiceIndex",
 	beforeRouteLeave(to, from, next) {
-		sessionStorage.setItem(
-			"dentalFilters",
-			JSON.stringify({
-				searchInputQuery: this.searchInputQuery?.trim() || "",
-				date: this.date || null,
-				dateEnd: this.dateEnd || null,
-				dateYear: this.dateYear || null,
-				statusSelected: Array.isArray(this.statusSelected) ? this.statusSelected : [],
-				page: this.options.page,
-				itemsPerPage: this.options.itemsPerPage
-			})
-		);
+
+		if (!to.path.includes('/dental/show/')) {
+			sessionStorage.removeItem('dentalFilters');
+		}else{
+			sessionStorage.setItem(
+				"dentalFilters",
+				JSON.stringify({
+					searchInputQuery: this.searchInputQuery?.trim() || "",
+					date: this.date || null,
+					dateEnd: this.dateEnd || null,
+					dateYear: this.dateYear || null,
+					statusSelected: Array.isArray(this.statusSelected) ? this.statusSelected : [],
+					page: this.options.page,
+					itemsPerPage: this.options.itemsPerPage
+				})
+			);
+		}
+
 		next();
 	},
 	props: ['type'],
@@ -347,9 +353,11 @@
 			} catch (error) {
 				console.error("Error loading saved filters:", error);
 				this.getDataFromApi();
+				this.filtersRestored = true;
 			}
 		} else {
 			this.getDataFromApi();
+			this.filtersRestored = true;
 		}
 	},
 	methods: {
@@ -546,12 +554,16 @@
 		searchInputData() {
 			this.searchInputQuery = this.searchInputQuery.trim();
 			if(this.searchInputQuery !== null && this.searchInputQuery !== ""){
+				this.options.page = this.initialPage;
+				this.options.itemsPerPage = this.initialItemsPerPage;
 				this.getDataFromApi();
 			}
 		},
 		clearSearchInput(){
 			this.searchInputQuery = "";
 			this.searchInputDisabled = true;
+			this.options.page = this.initialPage;
+			this.options.itemsPerPage = this.initialItemsPerPage;
 			this.getDataFromApi();
 		},
 	},

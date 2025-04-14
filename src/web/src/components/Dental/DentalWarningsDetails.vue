@@ -179,6 +179,17 @@
 					</v-radio-group>
 				</v-col>
 			</v-row>
+			<v-row no-gutters v-if="loadingData">
+				<v-col
+					cols="12"
+					sm="12"
+					md="12"
+					lg="12"
+					class="mt-5 mb-5 text-center"
+				>
+					<v-progress-circular indeterminate :size="52" :width="5"></v-progress-circular>
+				</v-col>
+			</v-row>
 			<v-row no-gutters>
 				<v-col>
 					<DentalApplicantInformation
@@ -267,6 +278,7 @@ export default {
 		originalRequest: '',
 		duplicatedRequest: '',
 		typeRequest: null,
+		loadingData: false,
 	}),
 
 	components: {
@@ -298,6 +310,8 @@ export default {
             this.confirmDisabled = false;
         },
 		validateRecord() {
+			this.loadingData = true;
+
 			axios
 			.get(DENTAL_VALIDATE_WARNING_URL+this.$route.params.duplicate_id)
 			.then((resp) => {
@@ -315,6 +329,8 @@ export default {
 			});
 		},
 		getDataFromApi() {
+			this.loadingData = true;
+
 			axios
 			.get(DENTAL_DUPLICATES_DETAILS+this.$route.params.duplicate_id)
 			.then((resp) => {
@@ -334,6 +350,7 @@ export default {
 			})
 			.catch((err) => console.error(err))
 			.finally(() => {
+				this.loadingData = false;
 			});
 		},
 		confirmDuplicate(){
