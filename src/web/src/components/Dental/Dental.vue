@@ -231,7 +231,7 @@
 	name: "DentalServiceIndex",
 	beforeRouteLeave(to, from, next) {
 
-		if (!to.path.includes('/dental')) {
+		if (!to.path.includes('/dental/show/')) {
 			sessionStorage.removeItem('dentalFilters');
 		}else{
 			sessionStorage.setItem(

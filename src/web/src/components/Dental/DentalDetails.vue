@@ -183,9 +183,12 @@ export default {
 	name: "DentalDetails",
 	beforeRouteLeave(to, from, next) {
 
-		if (!to.path.includes('/dental')) {
-			sessionStorage.removeItem('dentalFilters');
-			sessionStorage.removeItem('dentalArchiveFilters');
+		if (to.path !== "/dental") {
+			sessionStorage.removeItem("dentalFilters");
+		}
+
+		if (to.path !== "/dentalArchived") {
+			sessionStorage.removeItem("dentalArchiveFilters");
 		}
 
 		next();

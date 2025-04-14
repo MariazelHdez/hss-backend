@@ -211,7 +211,7 @@
 	name: "DentalServiceIndex",
 	beforeRouteLeave(to, from, next) {
 
-		if (!to.path.includes('/dental')) {
+		if (!to.path.includes('/dental/show/')) {
 			sessionStorage.removeItem('dentalArchiveFilters');
 		}else{
 			sessionStorage.setItem(
@@ -287,6 +287,9 @@
 		page: 1,
 		pageCount: 0,
 		iteamsPerPage: 10,
+		initialPage: 1,
+		initialItemsPerPage: 10,
+		itemsPerPage: [10, 15, 50, 100, -1],
 		alignments: "center",
 		searchInputDisabled: true,
 		searchInputQuery: '',
@@ -323,6 +326,8 @@
 			this.dateYear = parsed.dateYear || null;
 			this.selectedYear = parsed.dateYear || null;
 			this.statusSelected = parsed.statusSelected || null;
+			this.options.page = parsed.page || 1;
+			this.options.itemsPerPage = parsed.itemsPerPage || 10;
 		}
 
 		if (typeof this.$route.query.type !== undefined){
@@ -344,20 +349,28 @@
 				this.date = null;
 				this.dateEnd = null;
 				this.selected = [];
+				this.options.page = this.initialPage;
+				this.options.itemsPerPage = this.initialItemsPerPage;
 				this.getDataFromApi();
 			}
 		},
 		changeStatusSelect(){
 			this.selected = [];
+			this.options.page = this.initialPage;
+			this.options.itemsPerPage = this.initialItemsPerPage;
 			this.getDataFromApi();
 		},
 		updateDate(){
 			if(this.date !== null && this.dateEnd !== null){
 				this.selected = [];
+				this.options.page = this.initialPage;
+				this.options.itemsPerPage = this.initialItemsPerPage;
 				this.getDataFromApi();
 			}
 		},
 		removeFilters() {
+			this.options.page = this.initialPage;
+			this.options.itemsPerPage = this.initialItemsPerPage;
 			return this.date || this.dateEnd || this.statusSelected || this.dateYear || this.selectedYear;
 		},
 		resetInputs() {
@@ -461,12 +474,16 @@
 		searchInputData() {
 			this.searchInputQuery = this.searchInputQuery.trim();
 			if(this.searchInputQuery !== null && this.searchInputQuery !== ""){
+				this.options.page = this.initialPage;
+				this.options.itemsPerPage = this.initialItemsPerPage;
 				this.getDataFromApi();
 			}
 		},
 		clearSearchInput(){
 			this.searchInputQuery = "";
 			this.searchInputDisabled = true;
+			this.options.page = this.initialPage;
+			this.options.itemsPerPage = this.initialItemsPerPage;
 			this.getDataFromApi();
 		},
 		exportFile () {
