@@ -193,6 +193,11 @@
 			:loading="loading"
 			:search="search"
 			@input="enterSelect"
+			:server-items-length="totalItems"
+			@update:options="handlePagination"
+			:footer-props="{
+                'items-per-page-options': itemsPerPage
+            }"
 		>
 			<template v-slot:[`item.showurl`]="{ item }">
 				<v-icon @click="showDetails(item.showurl)">mdi-eye</v-icon>
@@ -211,18 +216,20 @@
 	name: "DentalServiceIndex",
 	beforeRouteLeave(to, from, next) {
 
-		if (!to.path.includes('/dental/show/')) {
+		if (!to.path.includes('/dental') || (to.path === from.path)) {
 			sessionStorage.removeItem('dentalArchiveFilters');
 		}else{
 			sessionStorage.setItem(
 				"dentalArchiveFilters",
 				JSON.stringify({
-					searchInputQuery: this.searchInputQuery,
-					date: this.date,
-					dateEnd: this.dateEnd,
-					dateYear: this.dateYear,
-					selectedYear: this.selectedYear,
-					statusSelected: this.statusSelected,
+					searchInputQuery: this.searchInputQuery?.trim() || "",
+					date: this.date || null,
+					dateEnd: this.dateEnd || null,
+					dateYear: this.dateYear || null,
+					statusSelected: Array.isArray(this.statusSelected) ? this.statusSelected : [],
+					page: this.options.page,
+					itemsPerPage: this.options.itemsPerPage,
+					initialFetch: this.initialFetch,
 				})
 			);
 		}
@@ -249,7 +256,10 @@
 		itemsSelected: [],
 		search: "",
 		applyDisabled: true,
-		options: {},
+		options: {
+			page: 1,
+			itemsPerPage: 10
+		},
 		flagAlert: false,
 		statusChangeMessage: "Status changed successfully.",
 		nonexistentMessage: "The submission you are consulting is closed or non existant, please choose a valid submission.",
@@ -290,12 +300,17 @@
 		initialPage: 1,
 		initialItemsPerPage: 10,
 		itemsPerPage: [10, 15, 50, 100, -1],
+		initialFetch: 1,
+		allItems: 0,
+		isAllData: false,
+		totalItems: 0,
 		alignments: "center",
 		searchInputDisabled: true,
 		searchInputQuery: '',
 		archivedFlag: true,
 		loadingExport: false,
 		disabledExport: false,
+		filtersRestored: false
 	}),
 	components: {
 		Notifications
@@ -318,16 +333,31 @@
 
 		const savedFilters = sessionStorage.getItem("dentalArchiveFilters");
 		if (savedFilters) {
-			const parsed = JSON.parse(savedFilters);
+			try {
+				const parsed = JSON.parse(savedFilters);
 
-			this.searchInputQuery = parsed.searchInputQuery || "";
-			this.date = parsed.date || null;
-			this.dateEnd = parsed.dateEnd || null;
-			this.dateYear = parsed.dateYear || null;
-			this.selectedYear = parsed.dateYear || null;
-			this.statusSelected = parsed.statusSelected || null;
-			this.options.page = parsed.page || 1;
-			this.options.itemsPerPage = parsed.itemsPerPage || 10;
+				this.searchInputQuery = parsed.searchInputQuery || "";
+				this.date = parsed.date || null;
+				this.dateEnd = parsed.dateEnd || null;
+				this.dateYear = parsed.dateYear || null;
+				this.selectedYear = parsed.dateYear || null;
+				this.statusSelected = parsed.statusSelected || null;
+				this.options.page = parsed.page || 1;
+				this.options.itemsPerPage = parsed.itemsPerPage || 10;
+				this.filtersRestored = true;
+				this.initialFetch = parsed.initialFetch;
+				this.$nextTick(() => {
+					this.getDataFromApi();
+				});
+
+			} catch (error) {
+				console.error("Error loading saved filters:", error);
+				this.getDataFromApi();
+				this.filtersRestored = true;
+			}
+		} else {
+			this.getDataFromApi();
+			this.filtersRestored = true;
 		}
 
 		if (typeof this.$route.query.type !== undefined){
@@ -338,7 +368,6 @@
 			}
 		}
 
-		this.getDataFromApi();
 	},
 	methods: {
 		handleYear() {
@@ -351,6 +380,7 @@
 				this.selected = [];
 				this.options.page = this.initialPage;
 				this.options.itemsPerPage = this.initialItemsPerPage;
+				this.initialFetch = 1;
 				this.getDataFromApi();
 			}
 		},
@@ -358,6 +388,7 @@
 			this.selected = [];
 			this.options.page = this.initialPage;
 			this.options.itemsPerPage = this.initialItemsPerPage;
+			this.initialFetch = 1;
 			this.getDataFromApi();
 		},
 		updateDate(){
@@ -365,12 +396,11 @@
 				this.selected = [];
 				this.options.page = this.initialPage;
 				this.options.itemsPerPage = this.initialItemsPerPage;
+				this.initialFetch = 1;
 				this.getDataFromApi();
 			}
 		},
 		removeFilters() {
-			this.options.page = this.initialPage;
-			this.options.itemsPerPage = this.initialItemsPerPage;
 			return this.date || this.dateEnd || this.statusSelected || this.dateYear || this.selectedYear;
 		},
 		resetInputs() {
@@ -384,11 +414,17 @@
 			this.selected = [];
 			this.searchInputQuery = "";
 			this.searchInputDisabled = true;
+			this.options.page = this.initialPage;
+			this.options.itemsPerPage = this.initialItemsPerPage;
+			this.initialFetch = 1;
 			this.getDataFromApi();
 		},
 		getDataFromApi() {
 			this.loading = true;
 			this.disabledExport = true;
+			this.items = [];
+			const { page, itemsPerPage, sortBy, sortDesc } = this.options;
+
 			axios
 			.post(DENTAL_URL, {
 				params: {
@@ -398,25 +434,44 @@
 					status: this.statusSelected,
 					searchQuery: this.searchInputQuery,
 					archivedFlag: this.archivedFlag,
+					page: page,
+					pageSize: itemsPerPage,
+					sortBy: sortBy.length ? sortBy[0] : null,
+					sortOrder: sortBy.length ? (sortDesc[0] ? 'DESC' : 'ASC') : null,
+					initialFetch: this.initialFetch,
 				}
 			})
 			.then((resp) => {
-				this.items = resp.data.data;
+				this.fetchedItems = resp.data.data;
 				this.bulkActions = resp.data.dataStatus;
 				this.statusFilter = resp.data.dataStatus;
 				this.loading = false;
 				this.dateDisabled = false;
+				this.totalItems = resp.data.total;
+				this.allItems = resp.data.all;
 
-				sessionStorage.setItem(
-					"dentalArchiveFilters",
-					JSON.stringify({
-					searchInputQuery: this.searchInputQuery,
-					date: this.date,
-					dateEnd: this.dateEnd,
-					dateYear: this.dateYear,
-					statusSelected: this.statusSelected,
-					})
-				);
+				if (this.initialFetch === 1 || this.options.itemsPerPage < this.fetchedItems.length) {
+                    const { page, itemsPerPage } = this.options;
+                    const startIndex = (page - 1) * itemsPerPage;
+                    const endIndex = startIndex + itemsPerPage;
+
+                    this.items = this.fetchedItems.slice(startIndex, endIndex);
+
+						sessionStorage.setItem(
+							"dentalArchiveFilters",
+							JSON.stringify({
+								searchInputQuery: this.searchInputQuery,
+								date: this.date,
+								dateEnd: this.dateEnd,
+								dateYear: this.dateYear,
+								statusSelected: this.statusSelected,
+							})
+						);
+
+						this.initialFetch = 0;
+				} else {
+					this.items = this.fetchedItems;
+				}
 			})
 			.catch((err) => console.error(err))
 			.finally(() => {
@@ -424,16 +479,38 @@
 				this.disabledExport = false;
 			});
 		},
+		handlePagination() {
+			if (!this.filtersRestored) {
+				return;
+			}
+
+            const { page, itemsPerPage, sortBy, sortDesc } = this.options;
+            const startIndex = (page - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            if (sortBy.length || sortDesc.length) {
+                this.getDataFromApi();
+            } else {
+                if (this.fetchedItems.length >= endIndex) {
+                    this.items = this.fetchedItems.slice(startIndex, endIndex);
+                } else {
+                    this.getDataFromApi();
+                }
+            }
+        },
 		showDetails(route) {
+			sessionStorage.setItem(
+				"dentalArchiveFilters",
+				JSON.stringify({
+					searchInputQuery: this.searchInputQuery?.trim() || "",
+					date: this.date || null,
+					dateEnd: this.dateEnd || null,
+					dateYear: this.dateYear || null,
+					statusSelected: Array.isArray(this.statusSelected) ? this.statusSelected : [],
+				})
+			);
+
 			this.$router.push({
-					path: route,
-					query: {
-						searchInputQuery: this.searchInputQuery,
-						date: this.date,
-						dateEnd: this.dateEnd,
-						dateYear: this.selectedYear,
-						statusSelected: JSON.stringify(this.statusSelected),
-					},
+				path: route
 			});
 		},
 		enterSelect() {
@@ -476,6 +553,7 @@
 			if(this.searchInputQuery !== null && this.searchInputQuery !== ""){
 				this.options.page = this.initialPage;
 				this.options.itemsPerPage = this.initialItemsPerPage;
+				this.initialFetch = 1;
 				this.getDataFromApi();
 			}
 		},
@@ -484,6 +562,7 @@
 			this.searchInputDisabled = true;
 			this.options.page = this.initialPage;
 			this.options.itemsPerPage = this.initialItemsPerPage;
+			this.initialFetch = 1;
 			this.getDataFromApi();
 		},
 		exportFile () {
