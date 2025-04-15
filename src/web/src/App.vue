@@ -238,6 +238,11 @@ export default {
       if (detail.url === "/dentalArchived") {
         sessionStorage.removeItem("dentalArchiveFilters");
       }
+
+      if (this.$route.path === detail.url) {
+        // Force component refresh if the user is already on the same route
+        this.componentKey += 1;
+      }
     },
   }
 };
