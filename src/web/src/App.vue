@@ -34,14 +34,15 @@
               class="mb-0"
             >
               <v-list-item
-              link
-              nav
-              v-bind:title="detail.name"
-              v-bind:to="detail.url"
-              v-if="checkPermissions(detail.permissions)"
+                link
+                nav
+                :title="detail.name"
+                :to="detail.url"
+                v-if="checkPermissions(detail.permissions)"
+                @click="onMenuClick(detail)"
               >
                 <v-list-item-icon>
-                <v-icon>{{ detail.icon }}</v-icon>
+                  <v-icon>{{ detail.icon }}</v-icon>
                 </v-list-item-icon>
                 <v-list-item-content>
                   <v-list-item-title>{{ detail.name }}</v-list-item-title>
@@ -228,7 +229,16 @@ export default {
         });   
       }
       return false;
-    }
+    },
+    onMenuClick(detail) {
+      if (detail.url === "/dental") {
+        sessionStorage.removeItem("dentalFilters");
+      }
+
+      if (detail.url === "/dentalArchived") {
+        sessionStorage.removeItem("dentalArchiveFilters");
+      }
+    },
   }
 };
 </script>
