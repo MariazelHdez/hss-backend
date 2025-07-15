@@ -201,7 +201,44 @@
 					</v-col>
 				</v-row>
 
-				<v-row no-gutters>
+				<v-row class="ma-5">
+					<label>
+						<b>Do you have coverage for dental services under any other program, plan or insurance group? Check all that apply to you.</b>
+					</label>
+					<v-col
+						v-for="(item, index) in checkAllCoverage"
+						:key="index"
+						cols="12"
+						md="12"
+						class="pa-1"
+					>
+						<v-checkbox
+							class="maxh-10"
+							v-model="selectedCheckAllCoverage"
+							:label="item.description"
+							:value="item.id"
+							@change="validateCheckAllCoverage(item.id)"
+						>
+						</v-checkbox>
+					</v-col>
+					<v-col
+						cols="12"
+						md="4"
+						sm="4"
+						lg="4"
+					>
+						<v-text-field
+							v-if="showCustomCheckAllCoverage"
+							outlined
+							class="ma-5"
+							v-model="customCheckAllCoverage"
+						>
+						</v-text-field>
+					</v-col>
+				</v-row>
+
+				
+				<v-row no-gutters v-if="selectedCoverage !== null">
 					<v-col
 						cols="10"
 						sm="12"
@@ -254,7 +291,7 @@
 <script>
 export default {
 	name: "FormApplicantInformation",
-	props: ["dentalService", "panelModel", "cityTown"],
+	props: ["dentalService", "panelModel", "cityTown", "checkAllCoverage",],
 	data() {
 		return {
 			modelPanel: this.panelModel,
@@ -263,7 +300,10 @@ export default {
 			selectedCityTown: null,
 			showCustomCityTown: false,
 			customCityTown: null,
+			showCustomCheckAllCoverage: false,
+			customCheckAllCoverage: null,
 			selectedCoverage: null,
+			selectedCheckAllCoverage: [],
 			optionsCoverage: [
 				{ text: "Yes, I have other coverage.", value: "Yes, I have other coverage.", key: 1,},
 				{ text: "No, I don't have other coverage.", value: "No, I don't have other coverage.", key: 2 },
@@ -299,6 +339,34 @@ export default {
 				}
 			}
 
+			if(newValue.check_all_coverage) {
+				let stringCheckAllCoverage = newValue.check_all_coverage;
+				for (const item of this.checkAllCoverage) {
+					const description = item.description;
+					const id = item.id;
+
+					if(description !== "Other"){
+						while (stringCheckAllCoverage.includes(description)) {
+							stringCheckAllCoverage = stringCheckAllCoverage.replace(description, id);
+						}
+					}
+				}
+				let arrayData = stringCheckAllCoverage.split(/,(?=\s*\D|$)/).map(item => item.trim());
+				this.selectedCheckAllCoverage = arrayData.map(item => {
+					const id = item;
+					if (!isNaN(id)) {
+						return parseInt(item);
+					} else {
+						const dataItem = this.checkAllCoverage.find(data => data.description === 'Other');
+						this.customCheckAllCoverage = item;
+						this.showCustomCheckAllCoverage = true;
+						return parseInt(dataItem.id);
+					}
+				});
+
+			}
+
+
 			if(newValue.other_coverage) {
 				let option = this.optionsCoverage.find(option => option.value == newValue.other_coverage);
 				this.selectedCoverage = option.value;
@@ -328,6 +396,27 @@ export default {
 				this.$emit('addField', "OTHER_COVERAGE");
 			}
 		},
+		validateCheckAllCoverage(value){
+			const CheckAllCoverageData = this.checkAllCoverage.find(item => item.id === value);
+			console.log(CheckAllCoverageData);
+			if(CheckAllCoverageData.description == 'Other'){
+				const dataElement = Object.values(this.checkAllCoverage).find(item => item.description == CheckAllCoverageData.description);
+
+				if(this.selectedCheckAllCoverage.includes(dataElement.id)){
+					this.showCustomCheckAllCoverage = true;
+				}else{
+					this.showCustomCheckAllCoverage = false;
+					this.customCheckAllCoverage = null;
+				}
+
+			}
+
+			if (!this.updatedFields.includes("CHECK_ALL_COVERAGE")) {
+				this.updatedFields.push("CHECK_ALL_COVERAGE");
+				this.$emit('addField', "CHECK_ALL_COVERAGE");
+			}
+
+		},
 		validateCityTown(){
 			const cityData = this.cityTown.find(item => item.value === this.selectedCityTown);
 
@@ -351,6 +440,19 @@ export default {
 			if(cityTown == 'other'){
 				cityTown = this.customCityTown;
 			}
+			console.log('HOLA');
+			console.log(this.selectedCheckAllCoverage);
+			if (this.selectedCheckAllCoverage) {
+				
+				this.selectedCheckAllCoverage = Object.values(this.checkAllCoverage)
+									.filter(item => this.selectedCheckAllCoverage.includes(item.id))
+									.map(item => item.description);
+
+				if(this.selectedCheckAllCoverage.includes("Other")){
+					this.selectedCheckAllCoverage = this.selectedCheckAllCoverage.map(item =>
+													(item === "Other" ? this.customCheckAllCoverage : item));
+				}
+			}
 
 			return {
 				FIRST_NAME: this.dentalService.first_name,
@@ -363,6 +465,7 @@ export default {
 				POSTAL_CODE: this.dentalService.postal_code,
 				PHONE: this.dentalService.phone,
 				EMAIL: this.dentalService.email,
+				CHECK_ALL_COVERAGE: this.selectedCheckAllCoverage,
 				OTHER_COVERAGE: this.selectedCoverage,
 				ARE_YOU_ELIGIBLE_FOR_THE_PHARMACARE_AND_EXTENDED_HEALTH_CARE_BEN: this.selectedPharmacare
 			};

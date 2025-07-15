@@ -603,6 +603,7 @@
 					"POSTAL CODE",
 					"PHONE",
 					"EMAIL",
+					"CHECK COVERAGE",
 					"OTHER COVERAGE",
 					"ELIGIBLE PHARMACARE",
 					"EMAIL INSTEAD",

@@ -107,6 +107,7 @@
 				<DentalApplicantInformation
 					v-bind:dentalService="itemsDental"
 					v-bind:panelModel="panelModel"
+					v-bind:check_all_coverage="itemsDentalCheckAllCoverage"
 				/>
 
 				<DentalDependents
@@ -209,6 +210,7 @@ export default {
 		idSubmission: null,
 		dbUser: null,
 		itemsDentalInternalFields: [],
+		itemsDentalCheckAllCoverage: [],
 		itemsInternalFieldsYears: [],
 		itemsDentalComments: [],
 		archivedFlag: false,
@@ -266,6 +268,7 @@ export default {
 				this.idStatusClosed = resp.data.dentalStatusClosed;
 				this.bulkActions = resp.data.dataStatus;
 				this.selectAction = resp.data.dataDentalService.status;
+				this.itemsDentalCheckAllCoverage = resp.data.dataDentalCoverage;
 				this.itemsInternalFieldsYears = resp.data.internalFieldsYears;
 				this.archivedFlag = resp.data.archivedFlag;
 			})

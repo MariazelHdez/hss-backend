@@ -501,6 +501,7 @@ export default {
 				"POSTAL CODE",
 				"PHONE",
 				"EMAIL",
+				"CHECK ALL COVERAGE",
 				"OTHER COVERAGE",
 				"ELIGIBLE PHARMACARE",
 				"EMAIL INSTEAD",

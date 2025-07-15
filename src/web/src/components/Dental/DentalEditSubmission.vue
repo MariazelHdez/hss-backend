@@ -25,6 +25,7 @@
 		<v-row no-gutters>
 				<FormApplicantInformation
 					ref="FormApplicantInformation"
+					v-bind:checkAllCoverage="itemsDentalCheckAllCoverage"
 					v-bind:dentalService="itemsDental"
 					v-bind:panelModel="panelModel"
 					v-bind:cityTown="itemsDentalCityTown"
@@ -115,6 +116,7 @@ export default {
 		itemsDentalReasons: [],
 		itemsDentalPaymentMethods: [],
 		itemsDentalBarriers: [],
+		itemsDentalCheckAllCoverage: [],
 		itemsDentalProblems: [],
 		itemsDentalServices: [],
 		dialog: false,
@@ -168,6 +170,7 @@ export default {
 				this.itemsDentalTimePeriods = resp.data.dataTimePeriods;
 				this.itemsDentalReasons = resp.data.dataDentalReasons;
 				this.itemsDentalPaymentMethods = resp.data.dataPaymentMethods;
+				this.itemsDentalCheckAllCoverage = resp.data.dataDentalCoverage;
 				this.itemsDentalBarriers = resp.data.dataDentalBarriers;
 				this.itemsDentalProblems = resp.data.dataDentalProblems;
 				this.itemsDentalServices = resp.data.dataDentalNeedServices;
@@ -177,6 +180,7 @@ export default {
 			.catch((err) => console.error(err))
 			.finally(() => {
 			});
+		
 		},
 		getDataSubmission(){
 			const applicantInformation = this.$refs.FormApplicantInformation;
