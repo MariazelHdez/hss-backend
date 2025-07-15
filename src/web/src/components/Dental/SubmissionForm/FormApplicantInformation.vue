@@ -440,17 +440,15 @@ export default {
 			if(cityTown == 'other'){
 				cityTown = this.customCityTown;
 			}
-			console.log('HOLA');
-			console.log(this.selectedCheckAllCoverage);
 			if (this.selectedCheckAllCoverage) {
 				
 				this.selectedCheckAllCoverage = Object.values(this.checkAllCoverage)
-									.filter(item => this.selectedCheckAllCoverage.includes(item.id))
-									.map(item => item.description);
+					.filter(item => this.selectedCheckAllCoverage.includes(item.id))
+					.map(item => item.description);
 
 				if(this.selectedCheckAllCoverage.includes("Other")){
 					this.selectedCheckAllCoverage = this.selectedCheckAllCoverage.map(item =>
-													(item === "Other" ? this.customCheckAllCoverage : item));
+						(item === "Other" ? this.customCheckAllCoverage : item));
 				}
 			}
 
