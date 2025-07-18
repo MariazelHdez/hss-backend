@@ -299,7 +299,7 @@
 			sortable: true,
 		},
 		{
-			text: "Eligible for the Pharmacare and Extended Health Care Benefits program",
+			text: "Other Coverage",
 			value: "eligible_pharmacare",
 			sortable: true,
 		},
