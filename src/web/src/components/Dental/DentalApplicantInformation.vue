@@ -82,14 +82,19 @@
 								<td>{{ dentalService.email }}</td>
 								<td>{{ (dentalServiceDuplicated.email) }}</td>
 							</tr>
+							<tr  v-if="dentalService.check_all_coverage || dentalServiceDuplicated.check_all_coverage">
+								<td>Do you have coverage for dental services under any other program, plan or insurance group?? Check all that apply.</td>
+								<td>{{ dentalService.check_all_coverage }}</td>
+								<td>{{ (dentalServiceDuplicated.check_all_coverage) }}</td>
+							</tr>
 
-							<tr>
+							<tr v-if="dentalService.other_coverage || dentalServiceDuplicated.other_coverage">
 								<td>Do you have coverage for dental services under any other program, plan or insurance group?</td>
 								<td>{{ dentalService.other_coverage }}</td>
 								<td>{{ (dentalServiceDuplicated.other_coverage) }}</td>
 							</tr>
-
-							<tr>
+							
+							<tr v-if="dentalService.other_coverage || dentalServiceDuplicated.other_coverage">
 								<td>Are you eligible for the Pharmacare and Extended Health Care Benefits program?</td>
 								<td>{{ dentalService.are_you_eligible_for_the_pharmacare_and_extended_health_care_ben }}</td>
 								<td>{{ dentalServiceDuplicated.are_you_eligible_for_the_pharmacare_and_extended_health_care_ben }}</td>
@@ -158,12 +163,18 @@
 								<td>{{ (dentalService.email) }}</td>
 							</tr>
 
+							<tr v-if="dentalService.check_all_coverage">
+								<td>Do you have coverage for dental services under any other program, plan or insurance group? ? Check all that apply. </td>
+								<td>{{ (dentalService.check_all_coverage) }}</td>
+							</tr>
+
+							
 							<tr v-if="dentalService.other_coverage">
 								<td>Do you have coverage for dental services under any other program, plan or insurance group?</td>
 								<td>{{ (dentalService.other_coverage) }}</td>
 							</tr>
 
-							<tr v-if="dentalService.eligible_pharmacare">
+							<tr v-if="dentalService.eligible_pharmacare && dentalService.other_coverage !== null">
 								<td>Are you eligible for the Pharmacare and Extended Health Care Benefits program?</td>
 								<td>{{ dentalService.eligible_pharmacare }}</td>
 							</tr>

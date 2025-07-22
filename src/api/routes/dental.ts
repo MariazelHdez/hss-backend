@@ -372,6 +372,7 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
                     'buy_supplies',
                     'pay_for_visit',
                     'barriers',
+                    'check_all_coverage',
                     'problems',
                     'services_needed'
                 ];
@@ -450,6 +451,8 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
         var dentalPaymentMethods = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_PAYMENT_METHODS`).select();
 
         var dentalBarriers = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_BARRIERS`).select();
+        
+        var dentalCoverage = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_COVERAGE`).select();
 
         var dentalProblems = await db(`${SCHEMA_DENTAL}.DENTAL_SERVICE_PROBLEMS`).select();
 
@@ -510,7 +513,7 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
         if(!loggedAction){
             console.log("Dental submission detail could not be logged");
         }
-
+ 
         res.json({ status: 200,
             dataStatus: dentalStatus,
             dataDentalService: dentalService,
@@ -531,6 +534,7 @@ dentalRouter.get("/show/:dentalService_id", checkPermissions("dental_view"), [pa
             dataDentalReasons: dentalReasons,
             dataPaymentMethods: dentalPaymentMethods,
             dataDentalBarriers: dentalBarriers,
+            dataDentalCoverage: dentalCoverage,
             dataDentalProblems: dentalProblems,
             dataDentalNeedServices: dentalNeedServices,
             archivedFlag: archivedFlag
@@ -1256,12 +1260,18 @@ dentalRouter.post("/store", async (req: Request, res: Response) => {
         dentalService.POSTAL_CODE = data.postal_code;
         dentalService.PHONE = data.phone;
         dentalService.EMAIL = data.email;
-        dentalService.OTHER_COVERAGE = data.other_coverage;
-        dentalService.ARE_YOU_ELIGIBLE_FOR_THE_PHARMACARE_AND_EXTENDED_HEALTH_CARE_BEN = data.are_you_eligible_for_the_pharmacare_and_extended_health_care_ben;
         dentalService.EMAIL_INSTEAD = data.email_instead;
         dentalService.HAVE_CHILDREN = data.have_children;
         dentalService.ASK_DEMOGRAPHIC = data.ask_demographic;
 
+        /**
+         * Optional fields (as of July 2025 update)
+         * These fields are no longer required but retained for legacy submission compatibility.
+         */
+        dentalService.OTHER_COVERAGE = data.other_coverage ?? null;
+        dentalService.ARE_YOU_ELIGIBLE_FOR_THE_PHARMACARE_AND_EXTENDED_HEALTH_CARE_BEN = data.are_you_eligible_for_the_pharmacare_and_extended_health_care_ben ?? null;
+
+        
         if(_.isEmpty(data.identify_groups) && !_.isArray(data.identify_groups)) {
             dentalService.IDENTIFY_GROUPS = null;
         }else{
@@ -1295,6 +1305,12 @@ dentalRouter.post("/store", async (req: Request, res: Response) => {
             dentalService.BARRIERS = null;
         }else{
             dentalService.BARRIERS =  db.raw("utl_raw.cast_to_raw(?) ", JSON.stringify(data.barriers));
+        }
+
+        if(_.isEmpty(data.check_all_coverage) && !_.isArray(data.check_all_coverage)) {
+            dentalService.CHECK_ALL_COVERAGE = null;
+        }else{
+            dentalService.CHECK_ALL_COVERAGE =  db.raw("utl_raw.cast_to_raw(?) ", JSON.stringify(data.check_all_coverage));
         }
 
         if(_.isEmpty(data.problems) && !_.isArray(data.problems)) {
@@ -1885,6 +1901,12 @@ dentalRouter.patch("/update", async (req: Request, res: Response) => {
             }else{
                 data.SERVICES_NEEDED =  db.raw("utl_raw.cast_to_raw(?) ", JSON.stringify(data.SERVICES_NEEDED));
             }
+        }
+
+        if(_.isEmpty(data.CHECK_ALL_COVERAGE) && !_.isArray(data.CHECK_ALL_COVERAGE)) {
+            data.CHECK_ALL_COVERAGE = null;
+        }else{
+            data.CHECK_ALL_COVERAGE =  db.raw("utl_raw.cast_to_raw(?) ", JSON.stringify(data.CHECK_ALL_COVERAGE));
         }
 
         data.HAVE_CHILDREN = have_children.text;
