@@ -201,7 +201,7 @@
 					</v-col>
 				</v-row>
 
-				<v-row class="ma-5">
+				<v-row class="ma-5"  v-if="checkAllCoverage && checkAllCoverage.length > 0 && selectedCheckAllCoverage && selectedCheckAllCoverage.length > 0">
 					<label>
 						<b>Do you have coverage for dental services under any other program, plan or insurance group? Check all that apply to you.</b>
 					</label>
@@ -322,7 +322,6 @@ export default {
 			this.modelPanel = newValue;
 		},
 		dentalService(newValue){
-
 			this.dentalServiceData = this.dentalService;
 
 			if (newValue.city_or_town) {
@@ -338,7 +337,6 @@ export default {
 					this.customCityTown = newValue.city_or_town;
 				}
 			}
-
 			if(newValue.check_all_coverage) {
 				let stringCheckAllCoverage = newValue.check_all_coverage;
 				for (const item of this.checkAllCoverage) {
@@ -363,9 +361,7 @@ export default {
 						return parseInt(dataItem.id);
 					}
 				});
-
 			}
-
 
 			if(newValue.other_coverage) {
 				let option = this.optionsCoverage.find(option => option.value == newValue.other_coverage);
@@ -398,7 +394,6 @@ export default {
 		},
 		validateCheckAllCoverage(value){
 			const CheckAllCoverageData = this.checkAllCoverage.find(item => item.id === value);
-			console.log(CheckAllCoverageData);
 			if(CheckAllCoverageData.description == 'Other'){
 				const dataElement = Object.values(this.checkAllCoverage).find(item => item.description == CheckAllCoverageData.description);
 
@@ -433,7 +428,6 @@ export default {
 			}
 		},
 		getApplicantInformation() {
-
 			const cityData = this.cityTown.find(item => item.value === this.selectedCityTown);
 			let cityTown = cityData.text;
 
@@ -451,7 +445,6 @@ export default {
 						(item === "Other" ? this.customCheckAllCoverage : item));
 				}
 			}
-
 			return {
 				FIRST_NAME: this.dentalService.first_name,
 				MIDDLE_NAME: this.dentalService.middle_name,
